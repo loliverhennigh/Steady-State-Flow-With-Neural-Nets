@@ -3,12 +3,14 @@ import tensorflow as tf
 import fnmatch
 import os
 
+NOT_PATH = ['base_dir', 'display_test', 'test_set']
+
 def make_checkpoint_path(base_path, FLAGS):
   # make checkpoint path with all the flags specifing different directories
 
   # run through all params and add them to the base path
   for k, v in FLAGS.__dict__['__flags'].items():
-    if k != 'base_dir':
+    if k not in NOT_PATH:
       base_path = base_path + '/' + k + '_' + str(v)
 
   return base_path
