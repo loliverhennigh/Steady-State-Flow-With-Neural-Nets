@@ -3,7 +3,8 @@
 This repository contains an re-implementation of the paper [Convolutional Neural Networks for Steady Flow Approximation](https://www.autodeskresearch.com/publications/convolutional-neural-networks-steady-flow-approximation). The premise is to learn a mapping from boundary conditions to steady state fluid flow. There are a few differences and improvements from this work and the original paper which are discussed bellow.
 
 # Getting data and making TFrecords
-This is the most difficult part of this project. [Mechsys](http://mechsys.nongnu.org/) was used to generate the fluid simulations necessary for training however it can be difficult to set up requires a fair number of packages. In light of this, I will attempt to make a compressed dataset and place it on google drive (should be around 800 MB). Until then, all the source code to generated the fluid flow is in the `fluid_generator` directory.
+This is the most difficult part of this project. [Mechsys](http://mechsys.nongnu.org/) was used to generate the fluid simulations necessary for training however it can be difficult to set up and requires a fair number of packages. In light of this, I have made the data set available [here](https://drive.google.com/file/d/0BzsbU65NgrSuZDBMOW93OWpsMHM/view?usp=sharing) (about 700 MB). Place this file in the `data` directory and this will be the train set. The test car set can be found [here](https://drive.google.com/file/d/0BzsbU65NgrSuR2NRRjBRMDVHaDQ/view?usp=sharing). Unzip this file in the `data` directory for the test car set.
+
 
 # Training
 To train enter the `train` directory and run
