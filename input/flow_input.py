@@ -69,7 +69,7 @@ def flow_inputs(batch_size):
 
   shape = (128,256)
 
-  tfrecord_filename = glb('../data/*') 
+  tfrecord_filename = glb('../data/*.tfrecords') 
   
   filename_queue = tf.train.string_input_producer(tfrecord_filename) 
 
