@@ -33,7 +33,7 @@ tf.app.flags.DEFINE_integer('max_steps', 500000,
                             """ max number of steps to train """)
 tf.app.flags.DEFINE_float('keep_prob', 0.7,
                             """ keep probability for dropout """)
-tf.app.flags.DEFINE_float('learning_rate', 1e-5,
+tf.app.flags.DEFINE_float('learning_rate', 1e-4,
                             """ keep probability for dropout """)
 tf.app.flags.DEFINE_bool('display_test', True,
                             """ display the test images """)
