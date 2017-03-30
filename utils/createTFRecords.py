@@ -4,7 +4,7 @@ import tensorflow as tf
 from glob import glob as glb
 import re
 from tqdm import *
-from flow_reader import load_flow, load_boundary
+from flow_reader import load_flow, load_boundary, load_state
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -32,7 +32,7 @@ for run in tqdm(train_filename):
   # read in images
   flow_name = run + '/fluid_flow_0002.h5'
   boundary = load_boundary(flow_name, shape)
-  sflow = load_flow(flow_name, shape)
+  sflow = load_state(flow_name, shape)
   
   # Display the resulting frame
   if FLAGS.debug == True:
@@ -46,7 +46,7 @@ for run in tqdm(train_filename):
   boundary = boundary.reshape([1,shape[0]*shape[1]])
   boundary = boundary.tostring()
   sflow = np.float32(sflow)
-  sflow = sflow.reshape([1,shape[0]*shape[1]*2])
+  sflow = sflow.reshape([1,shape[0]*shape[1]*9])
   sflow = sflow.tostring()
   
   # create example and write it

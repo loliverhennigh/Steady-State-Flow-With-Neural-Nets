@@ -45,6 +45,20 @@ def inference(boundary, keep_prob):
 
   return sflow_p
 
+def boundary_edge(boundary):
+  return flow_architecture.boundary_edge(boundary)
+  
+
+def drag(boundary, sflow):
+  # add more opperations to this
+  drag_x, drag_y, weird_bounds = flow_architecture.calc_drag(boundary, sflow)
+  return drag_x, drag_y, weird_bounds
+
+def velocity(sflow):
+  # add more opperations to this
+  velocity_x, velocity_y = flow_architecture.calc_velocity(sflow)
+  return velocity_x, velocity_y
+
 def loss_image(sflow_p, sflow):
   """Calc loss for predition on image of mask.
   Args.

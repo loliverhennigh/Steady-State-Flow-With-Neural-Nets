@@ -32,7 +32,7 @@ def read_data(filename_queue, shape):
   boundary = tf.decode_raw(features['boundary'], tf.uint8)
   sflow = tf.decode_raw(features['sflow'], tf.float32)
   boundary = tf.reshape(boundary, [shape[0], shape[1], 1])
-  sflow = tf.reshape(sflow, [shape[0], shape[1], 2])
+  sflow = tf.reshape(sflow, [shape[0], shape[1], 9])
   boundary = tf.to_float(boundary)
   sflow = tf.to_float(sflow) 
   return boundary, sflow 
@@ -69,7 +69,7 @@ def flow_inputs(batch_size):
 
   shape = (128,256)
 
-  tfrecord_filename = glb('../data/*') 
+  tfrecord_filename = glb('../data/train.tfrecords') 
   
   filename_queue = tf.train.string_input_producer(tfrecord_filename) 
 
@@ -79,8 +79,8 @@ def flow_inputs(batch_size):
  
   # display in tf summary page 
   tf.summary.image('boundarys', boundarys)
-  tf.summary.image('sflows_x', sflows[:,:,:,1:2])
-  tf.summary.image('sflows_y', sflows[:,:,:,0:1])
+  tf.summary.image('sflows_x', sflows[:,:,:,0:3])
+  tf.summary.image('sflows_y', sflows[:,:,:,3:6])
 
   return boundarys, sflows 
 

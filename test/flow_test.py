@@ -18,7 +18,7 @@ sys.path.append('../')
 
 import model.flow_net as flow_net 
 import input.flow_input as flow_input
-from utils.flow_reader import load_flow, load_boundary 
+from utils.flow_reader import load_flow, load_boundary, load_state
 from utils.experiment_manager import make_checkpoint_path
 
 import matplotlib.pyplot as plt
@@ -33,7 +33,7 @@ tf.app.flags.DEFINE_integer('max_steps', 500000,
                             """ max number of steps to train """)
 tf.app.flags.DEFINE_float('keep_prob', 0.7,
                             """ keep probability for dropout """)
-tf.app.flags.DEFINE_float('learning_rate', 1e-5,
+tf.app.flags.DEFINE_float('learning_rate', 1e-4,
                             """ keep probability for dropout """)
 tf.app.flags.DEFINE_bool('display_test', True,
                             """ display the test images """)
@@ -61,7 +61,7 @@ def evaluate():
     summary_op: Summary op.
   """
   # get a list of image filenames
-  filenames = glb('/data/fluid_flow_steady_state_128x128_test/*')
+  filenames = glb('../data/computed_car_flow/*')
   filenames.sort(key=alphanum_key)
   filename_len = len(filenames)
   shape = [128, 256]
@@ -73,6 +73,8 @@ def evaluate():
     # Build a Graph that computes the logits predictions from the
     # inference model.
     sflow_p = flow_net.inference(boundary_op,1.0)
+    drag_x, drag_y, weird_bounds = flow_net.drag(boundary_op, sflow_p)
+    velocity_x, velocity_y = flow_net.velocity(sflow_p)
 
     # Restore the moving average version of the learned variables for eval.
     variables_to_restore = tf.all_variables()
@@ -91,16 +93,25 @@ def evaluate():
       # read in boundary
       flow_name = run + '/fluid_flow_0002.h5'
       boundary_np = load_boundary(flow_name, shape).reshape([1, shape[0], shape[1], 1])
-      sflow_true = load_flow(flow_name, shape)
+      sflow_true = load_state(flow_name, shape)
  
       # calc logits 
       sflow_generated = sess.run(sflow_p,feed_dict={boundary_op: boundary_np})[0]
+      v_x, v_y, drag_x_g, drag_y_g, weird_bounds_g = sess.run([velocity_x, velocity_y, drag_x, drag_y, weird_bounds],feed_dict={boundary_op: boundary_np})
+      print("drag x is " + str(drag_x_g))
+      print("drag y is " + str(drag_y_g))
 
       if FLAGS.display_test: 
         # convert to display 
         sflow_plot = np.concatenate([sflow_true, sflow_generated, sflow_true - sflow_generated], axis=1) 
         boundary_concat = np.concatenate(3*[boundary_np], axis=2) 
-        sflow_plot = np.sqrt(np.square(sflow_plot[:,:,0]) + np.square(sflow_plot[:,:,1])) - .05 *boundary_concat[0,:,:,0]
+        #sflow_plot = np.sqrt(np.square(sflow_plot[:,:,0]) + np.square(sflow_plot[:,:,1])+ np.square(sflow_plot[:,:,2])+ np.square(sflow_plot[:,:,3]) + np.square(sflow_plot[:,:,4]) + np.square(sflow_plot[:,:,5]) + np.square(sflow_plot[:,:,6]) + np.square(sflow_plot[:,:,7]) + np.square(sflow_plot[:,:,8])) - .05 *boundary_concat[0,:,:,0]
+        #sflow_plot = sflow_plot[:,:,0]
+        #print(weird_bounds_g.shape)
+        #sflow_plot = weird_bounds_g[0,:,:]
+        #sflow_plot = weird_bounds_g[0,:,:] - .05 *boundary_np[0,1:-2,1:-1,0]
+        sflow_plot = v_y[0,:,:]
+
 
         # display it
         plt.imshow(sflow_plot)
