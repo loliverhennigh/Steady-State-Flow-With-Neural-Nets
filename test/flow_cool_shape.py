@@ -18,12 +18,21 @@ sys.path.append('../')
 
 import model.flow_net as flow_net 
 import input.flow_input as flow_input
+from model.lattice import *
 from utils.flow_reader import load_flow, load_boundary, load_state
 from utils.experiment_manager import make_checkpoint_path
 
 import matplotlib.pyplot as plt
 
 FLAGS = tf.app.flags.FLAGS
+
+# video init
+shape = [128, 256]
+fourcc = cv2.cv.CV_FOURCC('m', 'p', '4', 'v') 
+video = cv2.VideoWriter()
+
+success = video.open('figs/' + str(shape[0]) + "x" + str(shape[1]) + '_2d_video_.mov', fourcc, 4, (2*shape[1], shape[0]), True)
+
 
 tf.app.flags.DEFINE_string('base_dir', '../checkpoints',
                             """dir to store trained net """)
@@ -64,7 +73,6 @@ def evaluate():
   filenames = glb('../data/computed_car_flow/*')
   filenames.sort(key=alphanum_key)
   filename_len = len(filenames)
-  shape = [128, 256]
 
   with tf.Graph().as_default():
     # Make image placeholder
@@ -75,21 +83,25 @@ def evaluate():
     # Build a Graph that computes the logits predictions from the
     # inference model.
     sflow_p = flow_net.inference(boundary_op,1.0)
-    drag_x, drag_y, weird_bounds = flow_net.drag(boundary_op, sflow_p)
-    boundary_out, boundary_in = flow_net.boundary_edge(boundary_op)
-    boundary_in = boundary_op * boundary_in
+    force = lattice_to_force(sflow_p, boundary_op)
+    drag_x = tf.reduce_sum(force[:,:,:,0])
+    drag_y = tf.reduce_sum(force[:,:,:,1])
+    b_out = boundary_out(boundary_op)
+    b_in = boundary_in(boundary_op)
     
     # train_op
     train_variables = tf.all_variables()
     train_variables = [variable for i, variable in enumerate(train_variables) if "boundary" in variable.name[:variable.name.index(':')]]
     grads = tf.gradients(drag_y, train_variables)
-    bound_grad_out = tf.reshape(-grads[0], [1, shape[0]*shape[1]]) + tf.reshape(boundary_out, [1, shape[0]*shape[1]])
-    bound_grad_in = tf.reshape(-grads[0], [1, shape[0]*shape[1]]) - tf.reshape(boundary_in, [1, shape[0]*shape[1]])
+
+    bound_grad_out = tf.reshape(-grads[0], [1, shape[0]*shape[1]]) + tf.reshape(b_out, [1, shape[0]*shape[1]])
+    bound_grad_in = tf.reshape(-grads[0], [1, shape[0]*shape[1]]) - tf.reshape(b_in, [1, shape[0]*shape[1]])
     _, index_up   = tf.nn.top_k( bound_grad_out,2)
     _, index_down = tf.nn.top_k(-bound_grad_in,1)
     grad_up   = tf.reshape(tf.reduce_sum(tf.one_hot(  index_up[0], shape[0]*shape[1]), axis=0), [1, shape[0], shape[1], 1])
     grad_down = tf.reshape(tf.reduce_sum(tf.one_hot(index_down[0], shape[0]*shape[1]), axis=0), [1, shape[0], shape[1], 1])
     #train_step = tf.group(boundary_op.assign(tf.minimum(tf.maximum(boundary_op + grad_up - grad_down, 0.0), 1.0)))
+    #train_step = tf.group(boundary_op.assign(boundary_op + grad_up))
     train_step = tf.group(boundary_op.assign(boundary_op + grad_up - grad_down))
     #train_step = tf.group(boundary_op.assign(boundary_op - grad_down))
 
@@ -111,20 +123,34 @@ def evaluate():
     
     graph_def = tf.get_default_graph().as_graph_def(add_shapes=True)
 
+    k = 0
     for run in filenames:
+      k += 1
       # read in boundary
       flow_name = run + '/fluid_flow_0002.h5'
       boundary_np = load_boundary(flow_name, shape).reshape([1, shape[0], shape[1], 1])
+      #boundary_np = np.zeros_like(boundary_np)
+      #boundary_np[0,54:106,54:106,0] += 1.0
+ 
       sess.run(boundary_op_init, feed_dict={boundary_op_set: boundary_np})
 
       for i in xrange(1000):
         #index_up_g = sess.run([grad_up], feed_dict={})[0]
         d_y, _ = sess.run([drag_y, train_step], feed_dict={})
-        print(d_y)
+        if i % 20 == 0:
+          sflow_generated, boundary_generated = sess.run([sflow_p, boundary_op],feed_dict={})
+          sflow_plot = sflow_generated[0]
+          sflow_plot_1 = np.sqrt(np.square(sflow_plot[:,:,0]) + np.square(sflow_plot[:,:,1])+ np.square(sflow_plot[:,:,2])+ np.square(sflow_plot[:,:,3]) + np.square(sflow_plot[:,:,4]) + np.square(sflow_plot[:,:,5]) + np.square(sflow_plot[:,:,6]) + np.square(sflow_plot[:,:,7]) + np.square(sflow_plot[:,:,8]))
+          sflow_plot_2 = 1. *boundary_generated[0,:,:,0] + .5 * boundary_np[0,:,:,0]
+          sflow_plot = np.concatenate([10.0*sflow_plot_1, sflow_plot_2], axis=1).reshape((shape[0], 2*shape[1], 1))
+          sflow_plot = np.abs(np.concatenate(3*[sflow_plot], axis=2))
+          sflow_plot = np.uint8(100.0*sflow_plot)
+          video.write(sflow_plot)
+        
 
       # calc logits 
       sflow_generated, boundary_generated = sess.run([sflow_p, boundary_op],feed_dict={})
-      boundary_out_g = sess.run(boundary_in,feed_dict={})
+      boundary_out_g = sess.run(b_in,feed_dict={})
 
       # convert to display 
       sflow_plot = sflow_generated[0]
@@ -135,6 +161,7 @@ def evaluate():
       sflow_plot_2 = 1. *boundary_out_g[0,:,:,0] + .5 * boundary_np[0,:,:,0]
       
 
+
       # display it
       fig = plt.figure()
       a = fig.add_subplot(1,2,1)
@@ -142,8 +169,14 @@ def evaluate():
       a = fig.add_subplot(1,2,2)
       plt.imshow(sflow_plot_2)
       plt.colorbar()
-      plt.show()
+      #plt.show()
 
+      print("one down")
+      print(k)
+      if k == 5:
+        video.release()
+        cv2.destroyAllWindows()
+        exit()
 
 def main(argv=None):  # pylint: disable=unused-argument
   evaluate()
