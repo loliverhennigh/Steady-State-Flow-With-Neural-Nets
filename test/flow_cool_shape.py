@@ -94,8 +94,8 @@ def evaluate():
     train_variables = [variable for i, variable in enumerate(train_variables) if "boundary" in variable.name[:variable.name.index(':')]]
     grads = tf.gradients(drag_y, train_variables)
 
-    bound_grad_out = tf.reshape(-grads[0], [1, shape[0]*shape[1]]) + tf.reshape(b_out, [1, shape[0]*shape[1]])
-    bound_grad_in = tf.reshape(-grads[0], [1, shape[0]*shape[1]]) - tf.reshape(b_in, [1, shape[0]*shape[1]])
+    bound_grad_out = tf.reshape(grads[0], [1, shape[0]*shape[1]]) + tf.reshape(b_out, [1, shape[0]*shape[1]])
+    bound_grad_in = tf.reshape(grads[0], [1, shape[0]*shape[1]]) - tf.reshape(b_in, [1, shape[0]*shape[1]])
     _, index_up   = tf.nn.top_k( bound_grad_out,2)
     _, index_down = tf.nn.top_k(-bound_grad_in,1)
     grad_up   = tf.reshape(tf.reduce_sum(tf.one_hot(  index_up[0], shape[0]*shape[1]), axis=0), [1, shape[0], shape[1], 1])
@@ -129,15 +129,16 @@ def evaluate():
       # read in boundary
       flow_name = run + '/fluid_flow_0002.h5'
       boundary_np = load_boundary(flow_name, shape).reshape([1, shape[0], shape[1], 1])
-      #boundary_np = np.zeros_like(boundary_np)
-      #boundary_np[0,54:106,54:106,0] += 1.0
+      boundary_np = np.zeros_like(boundary_np)
+      boundary_np[0,60:120,60:120,0] += 1.0
  
       sess.run(boundary_op_init, feed_dict={boundary_op_set: boundary_np})
 
-      for i in xrange(1000):
+      for i in xrange(100):
         #index_up_g = sess.run([grad_up], feed_dict={})[0]
         d_y, _ = sess.run([drag_y, train_step], feed_dict={})
         if i % 20 == 0:
+          print(d_y)
           sflow_generated, boundary_generated = sess.run([sflow_p, boundary_op],feed_dict={})
           sflow_plot = sflow_generated[0]
           sflow_plot_1 = np.sqrt(np.square(sflow_plot[:,:,0]) + np.square(sflow_plot[:,:,1])+ np.square(sflow_plot[:,:,2])+ np.square(sflow_plot[:,:,3]) + np.square(sflow_plot[:,:,4]) + np.square(sflow_plot[:,:,5]) + np.square(sflow_plot[:,:,6]) + np.square(sflow_plot[:,:,7]) + np.square(sflow_plot[:,:,8]))
@@ -151,6 +152,7 @@ def evaluate():
       # calc logits 
       sflow_generated, boundary_generated = sess.run([sflow_p, boundary_op],feed_dict={})
       boundary_out_g = sess.run(b_in,feed_dict={})
+      drag_g = sess.run(force,feed_dict={})
 
       # convert to display 
       sflow_plot = sflow_generated[0]
@@ -158,7 +160,10 @@ def evaluate():
       #sflow_plot = np.sqrt(np.square(sflow_plot[:,:,0]) + np.square(sflow_plot[:,:,1])+ np.square(sflow_plot[:,:,2])+ np.square(sflow_plot[:,:,3]) + np.square(sflow_plot[:,:,4]) + np.square(sflow_plot[:,:,5]) + np.square(sflow_plot[:,:,6]) + np.square(sflow_plot[:,:,7]) + np.square(sflow_plot[:,:,8])) - 1. *boundary_generated[0,:,:,0] + .5 * boundary_np[0,:,:,0]
       #sflow_plot = 1. *boundary_generated[0,:,:,0] + .5 * boundary_np[0,:,:,0]
       #sflow_plot = 1. *boundary_out_g[0,:,:,0]
-      sflow_plot_2 = 1. *boundary_out_g[0,:,:,0] + .5 * boundary_np[0,:,:,0]
+      #sflow_plot_2 = 3. *drag_g[0,:,:,0] + .5 * boundary_np[0,:,:,0] + 1. *boundary_generated[0,:,:,0]
+      #sflow_plot_2 = 100. *drag_g[0,:,:,1] + .5 * boundary_np[0,1:-1,1:-1,0] + 1. *boundary_generated[0,1:-1,1:-1,0]
+      sflow_plot_2 = 100. *drag_g[0,:,:,1] + 1. *boundary_generated[0,1:-1,1:-1,0]
+      print(np.max(boundary_out_g))
       
 
 
@@ -169,11 +174,11 @@ def evaluate():
       a = fig.add_subplot(1,2,2)
       plt.imshow(sflow_plot_2)
       plt.colorbar()
-      #plt.show()
+      plt.show()
 
       print("one down")
       print(k)
-      if k == 5:
+      if k == 4:
         video.release()
         cv2.destroyAllWindows()
         exit()
