@@ -85,7 +85,7 @@ def evaluate():
     boundary_op = tf.Variable(np.random.randint(2, size=(1, shape[0], shape[1], 10)).astype(dtype=np.float32), name="boundary")
     boundary_op_init = tf.group(boundary_op.assign(boundary_op_set))
     boundary_set = make_boundary_set()
-    boundary_out = params_to_boundary(boundary_op, boundary_set)
+    boundary_out = params_to_boundary(boundary_op_init, boundary_set)
 
     # Build a Graph that computes the logits predictions from the
     # inference model.
@@ -94,19 +94,21 @@ def evaluate():
     force = lattice_to_force(sflow_p, boundary_out)
     drag_x = tf.reduce_sum(force[:,:,:,0])
     drag_y = tf.reduce_sum(force[:,:,:,1])
+    b_out = boundary_out(boundary_op)
+    b_in = boundary_in(boundary_op)
 
     # train_op
     train_variables = tf.all_variables()
     train_variables = [variable for i, variable in enumerate(train_variables) if "boundary" in variable.name[:variable.name.index(':')]]
     grads = tf.gradients(drag_y, train_variables)
-    grads = gaussian_noise_layer(grads, 30.0)
+    grads = gaussian_noise_layer(grads, .01)
 
-    bound_grad_out = tf.reshape(grads[0], [1, shape[0]*shape[1]*10]) - 10000.0*tf.reshape((-boundary_op+1.0), [1, shape[0]*shape[1]*10])
-    bound_grad_in = tf.reshape(grads[0], [1, shape[0]*shape[1]*10]) + 10000.0*tf.reshape(boundary_op, [1, shape[0]*shape[1]*10])
-    _, index_up   = tf.nn.top_k(-bound_grad_out,1)
-    test_store, index_down = tf.nn.top_k( bound_grad_in,1)
-    grad_up   = tf.reshape(tf.reduce_sum(tf.one_hot(  index_up[0], shape[0]*shape[1]*10), axis=0), [1, shape[0], shape[1], 10])
-    grad_down = tf.reshape(tf.reduce_sum(tf.one_hot(index_down[0], shape[0]*shape[1]*10), axis=0), [1, shape[0], shape[1], 10])
+    bound_grad_out = tf.reshape(grads[0], [1, shape[0]*shape[1]]) - tf.reshape(b_out, [1, shape[0]*shape[1]])
+    bound_grad_in = tf.reshape(grads[0], [1, shape[0]*shape[1]]) + tf.reshape(b_in, [1, shape[0]*shape[1]])
+    _, index_up   = tf.nn.top_k(-bound_grad_out,20)
+    _, index_down = tf.nn.top_k( bound_grad_in,20)
+    grad_up   = tf.reshape(tf.reduce_sum(tf.one_hot(  index_up[0], shape[0]*shape[1]), axis=0), [1, shape[0], shape[1], 1])
+    grad_down = tf.reshape(tf.reduce_sum(tf.one_hot(index_down[0], shape[0]*shape[1]), axis=0), [1, shape[0], shape[1], 1])
     #train_step = tf.group(boundary_op.assign(tf.minimum(tf.maximum(boundary_op + grad_up - grad_down, 0.0), 1.0)))
     #train_step = tf.group(boundary_op.assign(boundary_op + grad_up))
     train_step = tf.group(boundary_op.assign(boundary_op + grad_up - grad_down))
@@ -134,21 +136,19 @@ def evaluate():
     for run in filenames:
       k += 1
       # read in boundary
-      #flow_name = run + '/fluid_flow_0002.h5'
-      #boundary_np = load_boundary(flow_name, shape).reshape([1, shape[0], shape[1], 1])
-      boundary_np = np.zeros((1,shape[0],shape[1],10))
-      boundary_np[0,90,90,4] += 1.0
-      boundary_np[0,50,80,4] += 1.0
-      boundary_np[0,100,70,4] += 1.0
-      boundary_np[0,20,110,4] += 1.0
+      flow_name = run + '/fluid_flow_0002.h5'
+      boundary_np = load_boundary(flow_name, shape).reshape([1, shape[0], shape[1], 1])
+      #boundary_np = np.zeros_like(boundary_np)
+      #boundary_np[0,60:120,60:120,0] += 1.0
  
       sess.run(boundary_op_init, feed_dict={boundary_op_set: boundary_np})
 
-      for i in xrange(40):
+      for i in xrange(500):
         #index_up_g = sess.run([grad_up], feed_dict={})[0]
         d_y, _ = sess.run([drag_y, train_step], feed_dict={})
-        if i % 1 == 0:
+        if i % 10 == 0:
           print(d_y)
+          """
           sflow_generated, boundary_generated = sess.run([sflow_p, boundary_op],feed_dict={})
           sflow_plot = sflow_generated[0]
           sflow_plot_1 = np.sqrt(np.square(sflow_plot[:,:,0]) + np.square(sflow_plot[:,:,1])+ np.square(sflow_plot[:,:,2])+ np.square(sflow_plot[:,:,3]) + np.square(sflow_plot[:,:,4]) + np.square(sflow_plot[:,:,5]) + np.square(sflow_plot[:,:,6]) + np.square(sflow_plot[:,:,7]) + np.square(sflow_plot[:,:,8]))
@@ -157,13 +157,12 @@ def evaluate():
           sflow_plot = np.abs(np.concatenate(3*[sflow_plot], axis=2))
           sflow_plot = np.uint8(100.0*sflow_plot)
           video.write(sflow_plot)
+          """
         
 
       # calc logits 
-      sflow_generated, boundary_generated = sess.run([sflow_p, boundary_out],feed_dict={})
-      ts = sess.run([test_store],feed_dict={})
-      print(ts[0])
-      #boundary_out_g = sess.run(b_in,feed_dict={})
+      sflow_generated, boundary_generated = sess.run([sflow_p, boundary_op],feed_dict={})
+      boundary_out_g = sess.run(b_in,feed_dict={})
       drag_g = sess.run(force,feed_dict={})
 
       # convert to display 
@@ -175,6 +174,7 @@ def evaluate():
       sflow_plot_2 = .5 * boundary_np[0,:,:,0] + 1. *boundary_generated[0,:,:,0]
       #sflow_plot_2 = 100. *drag_g[0,:,:,1] + .5 * boundary_np[0,1:-1,1:-1,0] + 1. *boundary_generated[0,1:-1,1:-1,0]
       #sflow_plot_2 = 100. *drag_g[0,:,:,1] + 1. *boundary_generated[0,1:-1,1:-1,0]
+      print(np.max(boundary_out_g))
       
 
 
@@ -189,7 +189,7 @@ def evaluate():
 
       print("one down")
       print(k)
-      if k == 1:
+      if k == 4:
         video.release()
         cv2.destroyAllWindows()
         exit()
