@@ -13,6 +13,7 @@ import tensorflow as tf
 import numpy as np
 import flow_architecture
 import input.flow_input as flow_input
+import utils.boundary_utils as boundary_utils
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -26,7 +27,7 @@ tf.app.flags.DEFINE_bool('gated_res', True,
 tf.app.flags.DEFINE_string('nonlinearity', 'concat_elu',
                            """ nonlinearity used such as concat_elu, elu, concat_relu, relu """)
 
-def inputs(batch_size):
+def inputs_flow(batch_size):
   """makes input vector
   Return:
     x: input vector, may be filled 
@@ -34,32 +35,49 @@ def inputs(batch_size):
   boundary, sflow = flow_input.flow_inputs(batch_size)
   return boundary, sflow 
 
-def inference(boundary, keep_prob):
+def inputs_bounds(input_dims, batch_size):
+  """makes input vector
+  Return:
+    x: input vector, may be filled 
+  """
+  length_input = tf.placeholder(tf.float32, [batch_size, input_dims])
+  boundary = tf.placeholder(tf.float32, [batch_size, 128, 256, 1])
+  tf.summary.image('boundarys', boundary)
+  return length_input, boundary
+
+def feed_dict_bounds(input_dims, batch_size):
+  shape = [128, 256]
+  length_input = np.random.rand(batch_size, input_dims)
+  boundarys = []
+  for i in xrange(batch_size):
+    boundarys.append(boundary_utils.make_boundary_circle(length_input[i], shape))
+  boundarys = np.expand_dims(boundarys, axis=0)
+  boundarys = np.concatenate(boundarys)
+  boundarys = np.expand_dims(boundarys, axis=3)
+  return length_input, boundarys
+
+def inference_flow(boundary, keep_prob):
   """Builds network.
   Args:
     inputs: input to network 
     keep_prob: dropout layer
   """
-  if FLAGS.model == "res": 
-    sflow_p = flow_architecture.conv_res(boundary, nr_res_blocks=FLAGS.nr_res_blocks, keep_prob=keep_prob, nonlinearity_name=FLAGS.nonlinearity, gated=FLAGS.gated_res)
-
+  with tf.variable_scope("flow_network") as scope:
+    if FLAGS.model == "res": 
+      sflow_p = flow_architecture.conv_res(boundary, nr_res_blocks=FLAGS.nr_res_blocks, keep_prob=keep_prob, nonlinearity_name=FLAGS.nonlinearity, gated=FLAGS.gated_res)
   return sflow_p
 
-def boundary_edge(boundary):
-  return flow_architecture.boundary_edge(boundary)
-  
+def inference_bounds(length_input):
+  """Builds network.
+  Args:
+    inputs: input to network 
+  """
+  with tf.variable_scope("boundary_network") as scope:
+    boundary = flow_architecture.fc_conv(length_input)
+  tf.summary.image('boundarys_g', boundary)
+  return boundary
 
-def drag(boundary, sflow):
-  # add more opperations to this
-  drag_x, drag_y, weird_bounds = flow_architecture.calc_drag(boundary, sflow)
-  return drag_x, drag_y, weird_bounds
-
-def velocity(sflow):
-  # add more opperations to this
-  velocity_x, velocity_y = flow_architecture.calc_velocity(sflow)
-  return velocity_x, velocity_y
-
-def loss_image(sflow_p, sflow):
+def loss_flow(sflow_p, sflow):
   """Calc loss for predition on image of mask.
   Args.
     inputs: prediction image 
@@ -72,7 +90,17 @@ def loss_image(sflow_p, sflow):
   tf.summary.scalar('loss', loss)
   return loss
 
-def train(total_loss, lr):
-   train_op = tf.train.AdamOptimizer(lr).minimize(total_loss)
+def loss_bounds(true_boundary, generated_boundary):
+  intersection = tf.reduce_sum(generated_boundary * true_boundary)
+  loss = -(2. * intersection + 1.) / (tf.reduce_sum(true_boundary) + tf.reduce_sum(generated_boundary) + 1.)
+  #loss = tf.nn.l2_loss(true_boundary - generated_boundary)
+  tf.summary.scalar('loss', loss)
+  return loss
+
+def train(total_loss, lr, variables=None):
+   if variables is None:
+     train_op = tf.train.AdamOptimizer(lr).minimize(total_loss)
+   else:
+     train_op = tf.train.GradientDescentOptimizer(lr).minimize(total_loss, var_list=variables)
    return train_op
 

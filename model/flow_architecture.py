@@ -100,7 +100,7 @@ def fc_layer(inputs, hiddens, idx, nonlinearity=None, flat = False):
     biases = _variable('biases', [hiddens], initializer=tf.contrib.layers.xavier_initializer())
     output_biased = tf.add(tf.matmul(inputs_processed,weights),biases,name=str(idx)+'_fc')
     if nonlinearity is not None:
-      output_biased = nonlinearity(ouput_biased)
+      output_biased = nonlinearity(output_biased)
     return output_biased
 
 def nin(x, num_units, idx):
@@ -247,5 +247,19 @@ def conv_res(inputs, nr_res_blocks=1, keep_prob=1.0, nonlinearity_name='concat_e
 
 
   return x
+
+def fc_conv(inputs, nonlinearity_name="elu"):
+  nonlinearity = set_nonlinearity(nonlinearity_name)
+  fc_1 = fc_layer(inputs, 2048, 0, nonlinearity)
+  fc_1 = tf.reshape(fc_1, [-1, 8, 16, 16])
+  fconv_1 = transpose_conv_layer(fc_1, 3, 2, 16, "up_conv_1")
+  fconv_2 = transpose_conv_layer(fconv_1, 3, 2, 8, "up_conv_2")
+  fconv_3 = transpose_conv_layer(fconv_2, 3, 2, 4, "up_conv_3")
+  boundary = transpose_conv_layer(fconv_3, 3, 2, 1, "up_conv_4")
+  boundary = tf.sigmoid(boundary)
+  return boundary
+  
+
+
 
 

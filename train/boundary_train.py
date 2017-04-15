@@ -12,7 +12,7 @@ from utils.experiment_manager import make_checkpoint_path
 
 FLAGS = tf.app.flags.FLAGS
 
-tf.app.flags.DEFINE_string('base_dir', '../checkpoints',
+tf.app.flags.DEFINE_string('base_dir', '../checkpoints_boundary',
                             """dir to store trained net """)
 tf.app.flags.DEFINE_integer('batch_size', 8,
                             """ training batch size """)
@@ -31,11 +31,12 @@ def train():
   """Train ring_net for a number of steps."""
   with tf.Graph().as_default():
     # make inputs
-    boundary, sflow = flow_net.inputs_flow(FLAGS.batch_size) 
+    input_dims = 9
+    length_inputs, boundary_t = flow_net.inputs_bounds(input_dims, FLAGS.batch_size) 
     # create and unrap network
-    sflow_p = flow_net.inference_flow(boundary, FLAGS.keep_prob) 
+    boundary_g = flow_net.inference_bounds(length_inputs) 
     # calc error
-    error = flow_net.loss_flow(sflow_p, sflow) 
+    error = flow_net.loss_bounds(boundary_t, boundary_g) 
     # train hopefuly 
     train_op = flow_net.train(error, FLAGS.learning_rate)
     # List of all Variables
@@ -43,9 +44,9 @@ def train():
 
     # Build a saver
     saver = tf.train.Saver(tf.global_variables())   
-    #for i, variable in enumerate(variables):
-    #  print '----------------------------------------------'
-    #  print variable.name[:variable.name.index(':')]
+    for i, variable in enumerate(variables):
+      print '----------------------------------------------'
+      print variable.name[:variable.name.index(':')]
 
     # Summary op
     summary_op = tf.summary.merge_all()
@@ -80,13 +81,14 @@ def train():
 
     for step in xrange(FLAGS.max_steps):
       t = time.time()
-      _ , loss_value = sess.run([train_op, error],feed_dict={})
+      fd_length_inputs, fd_boundary = flow_net.feed_dict_bounds(input_dims, FLAGS.batch_size)
+      _ , loss_value = sess.run([train_op, error],feed_dict={length_inputs: fd_length_inputs, boundary_t: fd_boundary})
       elapsed = time.time() - t
 
       assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
 
       if step%100 == 0:
-        summary_str = sess.run(summary_op, feed_dict={})
+        summary_str = sess.run(summary_op, feed_dict={length_inputs: fd_length_inputs, boundary_t: fd_boundary})
         summary_writer.add_summary(summary_str, step) 
         print("loss value at " + str(loss_value))
         print("time per batch is " + str(elapsed))
