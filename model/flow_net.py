@@ -17,7 +17,23 @@ import utils.boundary_utils as boundary_utils
 
 FLAGS = tf.app.flags.FLAGS
 
-# Constants describing the training process.
+# Constants describing the training process and model.
+
+# Training params
+tf.app.flags.DEFINE_string('base_dir_flow', '../checkpoints_flow',
+                            """dir to store trained flow net """)
+tf.app.flags.DEFINE_string('base_dir_boundary', '../checkpoints_boundary',
+                            """dir to store trained net boundary """)
+tf.app.flags.DEFINE_integer('batch_size', 8,
+                            """ training batch size """)
+tf.app.flags.DEFINE_integer('max_steps', 500000,
+                            """ max number of steps to train """)
+tf.app.flags.DEFINE_float('keep_prob', 0.7,
+                            """ keep probability for dropout """)
+tf.app.flags.DEFINE_float('learning_rate', 1e-4,
+                            """ keep probability for dropout """)
+
+# model params
 tf.app.flags.DEFINE_string('model', 'res',
                            """ model name to train """)
 tf.app.flags.DEFINE_integer('nr_res_blocks', 1,
@@ -26,6 +42,12 @@ tf.app.flags.DEFINE_bool('gated_res', True,
                            """ gated resnet or not """)
 tf.app.flags.DEFINE_string('nonlinearity', 'concat_elu',
                            """ nonlinearity used such as concat_elu, elu, concat_relu, relu """)
+tf.app.flags.DEFINE_integer('nr_boundary_params', 19,
+                            """ number of boundary paramiters """)
+
+# test params
+tf.app.flags.DEFINE_string('test_set', "car",
+                            """ either car or random """)
 
 def inputs_flow(batch_size):
   """makes input vector
@@ -102,5 +124,6 @@ def train(total_loss, lr, variables=None):
      train_op = tf.train.AdamOptimizer(lr).minimize(total_loss)
    else:
      train_op = tf.train.GradientDescentOptimizer(lr).minimize(total_loss, var_list=variables)
+     #train_op = tf.train.AdamOptimizer(lr).minimize(total_loss, var_list=variables)
    return train_op
 

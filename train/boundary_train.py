@@ -12,26 +12,13 @@ from utils.experiment_manager import make_checkpoint_path
 
 FLAGS = tf.app.flags.FLAGS
 
-tf.app.flags.DEFINE_string('base_dir', '../checkpoints_boundary',
-                            """dir to store trained net """)
-tf.app.flags.DEFINE_integer('batch_size', 8,
-                            """ training batch size """)
-tf.app.flags.DEFINE_integer('max_steps', 500000,
-                            """ max number of steps to train """)
-tf.app.flags.DEFINE_float('keep_prob', 0.7,
-                            """ keep probability for dropout """)
-tf.app.flags.DEFINE_float('learning_rate', 1e-4,
-                            """ keep probability for dropout """)
-
-
-TRAIN_DIR = make_checkpoint_path(FLAGS.base_dir, FLAGS)
-print(TRAIN_DIR)
+TRAIN_DIR = make_checkpoint_path(FLAGS.base_dir_boundary, FLAGS)
 
 def train():
   """Train ring_net for a number of steps."""
   with tf.Graph().as_default():
     # make inputs
-    input_dims = 9
+    input_dims = FLAGS.nr_boundary_params
     length_inputs, boundary_t = flow_net.inputs_bounds(input_dims, FLAGS.batch_size) 
     # create and unrap network
     boundary_g = flow_net.inference_bounds(length_inputs) 
@@ -44,9 +31,6 @@ def train():
 
     # Build a saver
     saver = tf.train.Saver(tf.global_variables())   
-    for i, variable in enumerate(variables):
-      print '----------------------------------------------'
-      print variable.name[:variable.name.index(':')]
 
     # Summary op
     summary_op = tf.summary.merge_all()

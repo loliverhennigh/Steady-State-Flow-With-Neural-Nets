@@ -25,20 +25,8 @@ import matplotlib.pyplot as plt
 
 FLAGS = tf.app.flags.FLAGS
 
-tf.app.flags.DEFINE_string('base_dir', '../checkpoints',
-                            """dir to store trained net """)
-tf.app.flags.DEFINE_integer('batch_size', 8,
-                            """ training batch size """)
-tf.app.flags.DEFINE_integer('max_steps', 500000,
-                            """ max number of steps to train """)
-tf.app.flags.DEFINE_float('keep_prob', 0.7,
-                            """ keep probability for dropout """)
-tf.app.flags.DEFINE_float('learning_rate', 1e-4,
-                            """ keep probability for dropout """)
-tf.app.flags.DEFINE_bool('display_test', True,
-                            """ display the test images """)
 tf.app.flags.DEFINE_string('test_set', "car",
-                            """ either car or random """)
+                            """ just car for now """)
 
 TEST_DIR = make_checkpoint_path(FLAGS.base_dir, FLAGS)
 
@@ -72,9 +60,8 @@ def evaluate():
 
     # Build a Graph that computes the logits predictions from the
     # inference model.
-    sflow_p = flow_net.inference(boundary_op,1.0)
-    drag_x, drag_y, weird_bounds = flow_net.drag(boundary_op, sflow_p)
-    velocity_x, velocity_y = flow_net.velocity(sflow_p)
+    sflow_p = flow_net.inference_flow(boundary_op,1.0)
+    #velocity_x, velocity_y = flow_net.velocity(sflow_p)
 
     # Restore the moving average version of the learned variables for eval.
     variables_to_restore = tf.all_variables()

@@ -9,6 +9,7 @@ import cv2
 import csv
 import re
 from glob import glob as glb
+from tqdm import *
 
 import numpy as np
 import tensorflow as tf
@@ -34,23 +35,8 @@ video = cv2.VideoWriter()
 success = video.open('figs/' + str(shape[0]) + "x" + str(shape[1]) + '_2d_video_.mov', fourcc, 40, (2*shape[1], shape[0]), True)
 
 
-tf.app.flags.DEFINE_string('base_dir', '../checkpoints',
-                            """dir to store trained net """)
-tf.app.flags.DEFINE_integer('batch_size', 8,
-                            """ training batch size """)
-tf.app.flags.DEFINE_integer('max_steps', 500000,
-                            """ max number of steps to train """)
-tf.app.flags.DEFINE_float('keep_prob', 0.7,
-                            """ keep probability for dropout """)
-tf.app.flags.DEFINE_float('learning_rate', 1e-4,
-                            """ keep probability for dropout """)
-tf.app.flags.DEFINE_bool('display_test', True,
-                            """ display the test images """)
-tf.app.flags.DEFINE_string('test_set', "car",
-                            """ either car or random """)
-
-FLOW_DIR = make_checkpoint_path(FLAGS.base_dir, FLAGS)
-BOUNDARY_DIR = make_checkpoint_path('../checkpoints_boundary', FLAGS)
+FLOW_DIR = make_checkpoint_path(FLAGS.base_dir_flow, FLAGS)
+BOUNDARY_DIR = make_checkpoint_path(FLAGS.base_dir_boundary, FLAGS)
 
 def tryint(s):
   try:
@@ -61,9 +47,9 @@ def tryint(s):
 def alphanum_key(s):
   return [ tryint(c) for c in re.split('([0-9]+)', s) ]
 
-def make_params_op():
-  params_op_set = tf.placeholder(tf.float32, [1, 9])
-  params_op = tf.Variable(np.zeros((1, 9)).astype(dtype=np.float32), name="params")
+def make_params_op(batch_size=1):
+  params_op_set = tf.placeholder(tf.float32, [batch_size, FLAGS.nr_boundary_params])
+  params_op = tf.Variable(np.zeros((batch_size, FLAGS.nr_boundary_params)).astype(dtype=np.float32), name="params")
   params_op_init = tf.group(params_op.assign(params_op_set))
   return params_op, params_op_init, params_op_set
 
@@ -80,11 +66,12 @@ def evaluate():
   filenames = glb('../data/computed_car_flow/*')
   filenames.sort(key=alphanum_key)
   filename_len = len(filenames)
+  batch_size=1
 
   with tf.Graph().as_default():
     # Make image placeholder
-    params_op, params_op_init, params_op_set = make_params_op()
-    boundary = flow_net.inference_bounds(params_op)
+    params_op, params_op_init, params_op_set = make_params_op(batch_size)
+    boundary = flow_net.inference_bounds(tf.sigmoid(params_op))
 
     # Build a Graph that computes the logits predictions from the
     # inference model.
@@ -94,22 +81,28 @@ def evaluate():
     # quantities to optimize
     velocity = lattice_to_vel(sflow_p)
     velocity_norm = vel_to_norm(velocity)
+    force_t = lattice_to_force(sflow_p, tf.round(boundary+.4))
     force = lattice_to_force(sflow_p, boundary)
     drag_x = tf.reduce_sum(force[:,:,:,0])
     drag_y = tf.reduce_sum(force[:,:,:,1])
+    drag_y_t = tf.reduce_sum(force_t[:,:,:,1])
     boundary_area = tf.reduce_sum(boundary)
 
     # loss (change this however)
-    #loss = boundary_area
-    #loss = drag_y + 2.* drag_x
-    loss = drag_x
+    loss_b = tf.nn.l2_loss(boundary_area-3000)/1000000.0
+    #loss = drag_y + 1.0* drag_x
+    #loss = drag_x
+    #loss = -drag_y - drag_x + loss_b
+    #loss = drag_y + loss_b + drag_x
+    loss = drag_y - drag_x
+    #loss = drag_y + loss_b
+    #loss = drag_x + drag_y
     #loss = drag_y
 
     # train_op
     variables_to_train = tf.all_variables()
     variables_to_train = [variable for i, variable in enumerate(variables_to_train) if "params" in variable.name[:variable.name.index(':')]]
-    print(variables_to_train)
-    train_step = flow_net.train(loss, 0.05, variables=variables_to_train)
+    train_step = flow_net.train(loss, 0.5, variables=variables_to_train)
     #train_step = flow_net.train(loss, 0.0005, variables=variables_to_train)
 
     # init graph
@@ -126,9 +119,7 @@ def evaluate():
     sess.run(init)
 
     ckpt_boundary = tf.train.get_checkpoint_state(BOUNDARY_DIR)
-    print(BOUNDARY_DIR)
     ckpt_flow = tf.train.get_checkpoint_state(FLOW_DIR)
-    print(FLOW_DIR)
 
     saver_boundary.restore(sess, ckpt_boundary.model_checkpoint_path)
     saver_flow.restore(sess, ckpt_flow.model_checkpoint_path)
@@ -136,17 +127,37 @@ def evaluate():
     
     graph_def = tf.get_default_graph().as_graph_def(add_shapes=True)
 
-    params_np = np.random.rand(1,9)
+    params_np = np.random.rand(batch_size,FLAGS.nr_boundary_params)
+    #params_np[0,0] = 1.0
+    #params_np[0,1] = 0.3
+    #params_np[0,2] = 0.2
+    #params_np[0,3] = 0.2
+    #params_np[0,4] = 0.2 
+    #params_np[0,5] = 0.2 
+    #params_np[0,6] = 0.2
+    #params_np[0,7] = 0.2
+    #params_np[0,8] = 0.3
+    #params_np = np.random.rand(batch_size,9)
  
     sess.run(params_op_init, feed_dict={params_op_set: params_np})
+    run_time = 1500
+    plot_error = np.zeros((run_time))
+    plot_drag_y = np.zeros((run_time))
+    plot_drag_y_t = np.zeros((run_time))
+    plot_drag_x = np.zeros((run_time))
 
-    for i in xrange(10):
-      d_y, _, params = sess.run([loss, train_step, drag_y], feed_dict={})
-      print(d_y)
-      print(params)
-      if i % 1 == 0:
+    for i in tqdm(xrange(run_time)):
+      l, _, d_y, d_x, d_y_t = sess.run([loss, train_step, drag_y, drag_x, drag_y_t], feed_dict={})
+      if i > 0:
+        plot_error[i] = l
+        plot_drag_x[i] = d_x
+        plot_drag_y[i] = d_y
+        plot_drag_y_t[i] = d_y_t
+      if i % 10 == 0:
         velocity_norm_g, boundary_g = sess.run([velocity_norm, boundary],feed_dict={})
+        #velocity_norm_g, boundary_g = sess.run([velocity_norm, force],feed_dict={})
         sflow_plot = np.concatenate([10.0*velocity_norm_g[0], boundary_g[0]], axis=1)
+        #sflow_plot = np.concatenate([10.0*velocity_norm_g[0], boundary_g[0,:,:,0]], axis=1)
         sflow_plot = np.abs(np.concatenate(3*[sflow_plot], axis=2))
         sflow_plot = np.uint8(100.0*sflow_plot)
         video.write(sflow_plot)
@@ -163,10 +174,16 @@ def evaluate():
       
     # display it
     fig = plt.figure()
-    a = fig.add_subplot(1,2,1)
+    a = fig.add_subplot(1,3,1)
     plt.imshow(velocity_norm_g)
-    a = fig.add_subplot(1,2,2)
+    a = fig.add_subplot(1,3,2)
     plt.imshow(boundary_g)
+    a = fig.add_subplot(1,3,3)
+    plt.plot(plot_error, label="loss")
+    plt.plot(plot_drag_x, label="drag_x")
+    plt.plot(plot_drag_y, label="drag_y")
+    plt.plot(plot_drag_y_t, label="drag_y_t")
+    plt.legend()
     plt.colorbar()
     plt.show()
 

@@ -34,23 +34,7 @@ video = cv2.VideoWriter()
 
 success = video.open('figs/' + str(shape[0]) + "x" + str(shape[1]) + '_2d_video_.mov', fourcc, 4, (2*shape[1], shape[0]), True)
 
-
-tf.app.flags.DEFINE_string('base_dir', '../checkpoints',
-                            """dir to store trained net """)
-tf.app.flags.DEFINE_integer('batch_size', 8,
-                            """ training batch size """)
-tf.app.flags.DEFINE_integer('max_steps', 500000,
-                            """ max number of steps to train """)
-tf.app.flags.DEFINE_float('keep_prob', 0.7,
-                            """ keep probability for dropout """)
-tf.app.flags.DEFINE_float('learning_rate', 1e-4,
-                            """ keep probability for dropout """)
-tf.app.flags.DEFINE_bool('display_test', True,
-                            """ display the test images """)
-tf.app.flags.DEFINE_string('test_set', "car",
-                            """ either car or random """)
-
-TEST_DIR = make_checkpoint_path(FLAGS.base_dir, FLAGS)
+TEST_DIR = make_checkpoint_path(FLAGS.base_dir_flow, FLAGS)
 
 def tryint(s):
   try:
@@ -81,17 +65,17 @@ def evaluate():
 
   with tf.Graph().as_default():
     # Make image placeholder
-    boundary_op_set = tf.placeholder(tf.float32, [1, shape[0], shape[1], 10])
-    boundary_op = tf.Variable(np.random.randint(2, size=(1, shape[0], shape[1], 10)).astype(dtype=np.float32), name="boundary")
+    boundary_op_set = tf.placeholder(tf.float32, [1, shape[0], shape[1], 1])
+    boundary_op = tf.Variable(np.random.randint(2, size=(1, shape[0], shape[1], 1)).astype(dtype=np.float32), name="boundary")
     boundary_op_init = tf.group(boundary_op.assign(boundary_op_set))
-    boundary_set = make_boundary_set()
-    boundary_out = params_to_boundary(boundary_op_init, boundary_set)
 
     # Build a Graph that computes the logits predictions from the
     # inference model.
-    sflow_p = flow_net.inference(boundary_out,1.0)
-    #sflow_p = add_lattice(sflow_p)
-    force = lattice_to_force(sflow_p, boundary_out)
+    sflow_p = flow_net.inference_flow(boundary_op,1.0)
+    sflow_p = add_lattice(sflow_p)
+    velocity = lattice_to_vel(sflow_p)
+    velocity_norm = vel_to_norm(velocity)
+    force = lattice_to_force(sflow_p, boundary_op)
     drag_x = tf.reduce_sum(force[:,:,:,0])
     drag_y = tf.reduce_sum(force[:,:,:,1])
     b_out = boundary_out(boundary_op)
@@ -101,18 +85,16 @@ def evaluate():
     train_variables = tf.all_variables()
     train_variables = [variable for i, variable in enumerate(train_variables) if "boundary" in variable.name[:variable.name.index(':')]]
     grads = tf.gradients(drag_y, train_variables)
-    grads = gaussian_noise_layer(grads, .01)
+    grads = gaussian_noise_layer(grads, .005)
+    #grads = gaussian_noise_layer(grads, .2)
 
     bound_grad_out = tf.reshape(grads[0], [1, shape[0]*shape[1]]) - tf.reshape(b_out, [1, shape[0]*shape[1]])
     bound_grad_in = tf.reshape(grads[0], [1, shape[0]*shape[1]]) + tf.reshape(b_in, [1, shape[0]*shape[1]])
-    _, index_up   = tf.nn.top_k(-bound_grad_out,20)
-    _, index_down = tf.nn.top_k( bound_grad_in,20)
+    _, index_up   = tf.nn.top_k(-bound_grad_out,5)
+    _, index_down = tf.nn.top_k( bound_grad_in,5)
     grad_up   = tf.reshape(tf.reduce_sum(tf.one_hot(  index_up[0], shape[0]*shape[1]), axis=0), [1, shape[0], shape[1], 1])
     grad_down = tf.reshape(tf.reduce_sum(tf.one_hot(index_down[0], shape[0]*shape[1]), axis=0), [1, shape[0], shape[1], 1])
-    #train_step = tf.group(boundary_op.assign(tf.minimum(tf.maximum(boundary_op + grad_up - grad_down, 0.0), 1.0)))
-    #train_step = tf.group(boundary_op.assign(boundary_op + grad_up))
     train_step = tf.group(boundary_op.assign(boundary_op + grad_up - grad_down))
-    #train_step = tf.group(boundary_op.assign(boundary_op - grad_down))
 
     # init graph
     init = tf.global_variables_initializer()
@@ -143,7 +125,7 @@ def evaluate():
  
       sess.run(boundary_op_init, feed_dict={boundary_op_set: boundary_np})
 
-      for i in xrange(500):
+      for i in xrange(1500):
         #index_up_g = sess.run([grad_up], feed_dict={})[0]
         d_y, _ = sess.run([drag_y, train_step], feed_dict={})
         if i % 10 == 0:
@@ -161,29 +143,18 @@ def evaluate():
         
 
       # calc logits 
-      sflow_generated, boundary_generated = sess.run([sflow_p, boundary_op],feed_dict={})
-      boundary_out_g = sess.run(b_in,feed_dict={})
-      drag_g = sess.run(force,feed_dict={})
+      velocity_norm_g, boundary_g, b_out_g = sess.run([velocity_norm, boundary_op, b_in],feed_dict={})
 
       # convert to display 
-      sflow_plot = sflow_generated[0]
-      sflow_plot_1 = np.sqrt(np.square(sflow_plot[:,:,0]) + np.square(sflow_plot[:,:,1])+ np.square(sflow_plot[:,:,2])+ np.square(sflow_plot[:,:,3]) + np.square(sflow_plot[:,:,4]) + np.square(sflow_plot[:,:,5]) + np.square(sflow_plot[:,:,6]) + np.square(sflow_plot[:,:,7]) + np.square(sflow_plot[:,:,8]))
-      #sflow_plot = np.sqrt(np.square(sflow_plot[:,:,0]) + np.square(sflow_plot[:,:,1])+ np.square(sflow_plot[:,:,2])+ np.square(sflow_plot[:,:,3]) + np.square(sflow_plot[:,:,4]) + np.square(sflow_plot[:,:,5]) + np.square(sflow_plot[:,:,6]) + np.square(sflow_plot[:,:,7]) + np.square(sflow_plot[:,:,8])) - 1. *boundary_generated[0,:,:,0] + .5 * boundary_np[0,:,:,0]
-      #sflow_plot = 1. *boundary_generated[0,:,:,0] + .5 * boundary_np[0,:,:,0]
-      #sflow_plot = 1. *boundary_out_g[0,:,:,0]
-      sflow_plot_2 = .5 * boundary_np[0,:,:,0] + 1. *boundary_generated[0,:,:,0]
-      #sflow_plot_2 = 100. *drag_g[0,:,:,1] + .5 * boundary_np[0,1:-1,1:-1,0] + 1. *boundary_generated[0,1:-1,1:-1,0]
-      #sflow_plot_2 = 100. *drag_g[0,:,:,1] + 1. *boundary_generated[0,1:-1,1:-1,0]
-      print(np.max(boundary_out_g))
-      
-
+      velocity_norm_g = velocity_norm_g[0,:,:,0]
+      boundary_g = 0.5*boundary_np[0,:,:,0] + 1.0*boundary_g[0,:,:,0] + 2.0*b_out_g[0]
 
       # display it
       fig = plt.figure()
       a = fig.add_subplot(1,2,1)
-      plt.imshow(sflow_plot_1)
+      plt.imshow(velocity_norm_g)
       a = fig.add_subplot(1,2,2)
-      plt.imshow(sflow_plot_2)
+      plt.imshow(boundary_g)
       plt.colorbar()
       plt.show()
 

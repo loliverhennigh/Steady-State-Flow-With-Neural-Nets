@@ -12,20 +12,7 @@ from utils.experiment_manager import make_checkpoint_path
 
 FLAGS = tf.app.flags.FLAGS
 
-tf.app.flags.DEFINE_string('base_dir', '../checkpoints',
-                            """dir to store trained net """)
-tf.app.flags.DEFINE_integer('batch_size', 8,
-                            """ training batch size """)
-tf.app.flags.DEFINE_integer('max_steps', 500000,
-                            """ max number of steps to train """)
-tf.app.flags.DEFINE_float('keep_prob', 0.7,
-                            """ keep probability for dropout """)
-tf.app.flags.DEFINE_float('learning_rate', 1e-4,
-                            """ keep probability for dropout """)
-
-
-TRAIN_DIR = make_checkpoint_path(FLAGS.base_dir, FLAGS)
-print(TRAIN_DIR)
+TRAIN_DIR = make_checkpoint_path(FLAGS.base_dir_flow, FLAGS)
 
 def train():
   """Train ring_net for a number of steps."""

@@ -3,7 +3,7 @@ import tensorflow as tf
 import fnmatch
 import os
 
-NOT_PATH = ['base_dir', 'display_test', 'test_set']
+NOT_PATH = ['base_dir_flow', 'base_dir_boundary', 'display_test', 'test_set', 'batch_size', 'max_steps', 'test_set']
 
 def make_checkpoint_path(base_path, FLAGS):
   # make checkpoint path with all the flags specifing different directories

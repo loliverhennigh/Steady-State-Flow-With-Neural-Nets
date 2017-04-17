@@ -195,8 +195,8 @@ def boundary_out(boundary):
     edge = simple_trans_conv_3d(boundary,boundary_edge_kernel)
   edge = edge * (-boundary + 1.0)
   edge = tf.reduce_sum(edge, axis=3)
-  edge = edge - 2.0
-  edge = tf.minimum(edge, 2.0)
+  edge = edge - 0.0
+  edge = tf.minimum(edge, 1.00)
   edge = tf.maximum(edge, 0.0)
   return edge
 
@@ -209,9 +209,8 @@ def boundary_in(boundary):
     edge = simple_trans_conv_3d((-boundary+1),boundary_edge_kernel)
   edge = edge * boundary
   edge = tf.reduce_sum(edge, axis=3)
-  edge = edge - 2.0
-  #edge = edge 
-  edge = tf.minimum(edge, 2.0)
+  edge = edge - 0.0
+  edge = tf.minimum(edge, 1.0)
   edge = tf.maximum(edge, 0.0)
   return edge
 

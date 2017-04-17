@@ -1,7 +1,7 @@
 
 import numpy as np
 
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 
 def fill_bottom_flat_triangle(boundary, vertex_1, vertex_2, vertex_3):
@@ -14,7 +14,8 @@ def fill_bottom_flat_triangle(boundary, vertex_1, vertex_2, vertex_3):
   for i in xrange(int(vertex_1[1]),  int(vertex_2[1]), 1):
     max_cur = max(cur_x_1, cur_x_2)
     min_cur = min(cur_x_1, cur_x_2)
-    boundary[int(min_cur-1.5):int(max_cur+1.5),i] = 1.0
+    #boundary[int(min_cur-1.5):int(max_cur+1.5),i] = 1.0
+    boundary[int(np.floor(min_cur)):int(np.floor(max_cur)),i] = 1.0
     cur_x_1 += inv_slope_1
     cur_x_2 += inv_slope_2
 
@@ -30,7 +31,8 @@ def fill_top_flat_triangle(boundary, vertex_1, vertex_2, vertex_3):
   for i in xrange(int(vertex_3[1]),  int(vertex_2[1]), -1):
     max_cur = max(cur_x_1, cur_x_2)
     min_cur = min(cur_x_1, cur_x_2)
-    boundary[int(min_cur-1.5):int(max_cur+1.5),i] = 1.0
+    #boundary[int(min_cur-1.5):int(max_cur+1.5),i] = 1.0
+    boundary[int(np.floor(min_cur)):int(np.floor(max_cur)),i] = 1.0
     cur_x_1 -= inv_slope_1
     cur_x_2 -= inv_slope_2
 
@@ -46,7 +48,8 @@ def draw_triangle(boundary, vertex_1, vertex_2, vertex_3):
   else:
     vertex_4 = np.zeros((2))
     vertex_4[0] = int(np.floor(vertex_1[0] + ((vertex_2[1] - vertex_1[1]) / (vertex_3[1] - vertex_1[1])) * (vertex_3[0] - vertex_1[0])))
-    vertex_4[1] = vertex_2[1] - 1
+    vertex_4[1] = vertex_2[1] - 0.5
+    #vertex_4[1] = vertex_2[1] 
     fill_bottom_flat_triangle(boundary, vertex_1, vertex_2, vertex_4)
     fill_top_flat_triangle(boundary, vertex_2, vertex_4, vertex_3)
 
@@ -59,14 +62,14 @@ def sort_vertices(vertex_1, vertex_2, vertex_3):
 
 def make_boundary_circle(length_input, shape):
   boundary = np.zeros(shape)
-  max_length = np.min(shape)/4.0
+  max_length = np.min(shape)/2.0
   pos = np.zeros((2))
   pos[0] = int(shape[0]/2.0)
   pos[1] = int(shape[1]/2.0)
 
   x_1 = np.zeros((2))
   x_1[0] = 0 + pos[0]
-  x_1[1] = int(length_input[0]*max_length) + pos[1]
+  x_1[1] = int((.5*length_input[0] + .25*length_input[1] + .25*length_input[-1])*max_length) + pos[1]
   x_start = np.copy(x_1)
 
   x_2 = np.zeros((2))
@@ -74,9 +77,9 @@ def make_boundary_circle(length_input, shape):
   alpha = (2*np.pi)/len(length_input)
   alpha_i = 0.0
 
-  for i in xrange(len(length_input)-1):
+  for i in xrange(len(length_input)-2):
 
-    length = length_input[i+1]
+    length = .5 * length_input[i+1] + .25 * length_input[i] + .25 * length_input[i+2]
 
     alpha_i += alpha
 
@@ -91,13 +94,31 @@ def make_boundary_circle(length_input, shape):
 
   return boundary
 
-#length_input = np.zeros((10)) + 1.0
-#length_input = np.random.rand(1009)
-#boundary = make_boundary_circle(length_input, (10000,10000))
+def make_boundary_curvey(length_input, shape):
+  boundary = np.zeros(shape)
+  max_length = np.min(shape)/2.0
 
-#plt.figure()
-#plt.imshow(boundary)
-#plt.show()
+  pos = np.zeros((2))
+  pos[0] = int(shape[0]/2.0)
+  pos[1] = int(shape[1]/2.0)
+
+  alpha = (2*np.pi)/len(length_input)
+  alpha_i = 0.0
+
+  for i in xrange(shape[0]):
+    for j in xrange(shape[1]):
+      angle = (i-pos[0]) (i-pos[0])
+      pos 
+      boundary[i,j]
+
+
+#length_input = np.zeros((19)) + 0.5
+length_input = np.random.rand(19)
+boundary = make_boundary_circle(length_input, (128,128))
+
+plt.figure()
+plt.imshow(boundary)
+plt.show()
 
 
 

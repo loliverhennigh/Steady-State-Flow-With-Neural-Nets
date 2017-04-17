@@ -34,23 +34,8 @@ video = cv2.VideoWriter()
 
 success = video.open('figs/' + str(shape[0]) + "x" + str(shape[1]) + '_2d_video_.mov', fourcc, 4, (2*shape[1], shape[0]), True)
 
-
-tf.app.flags.DEFINE_string('base_dir', '../checkpoints',
-                            """dir to store trained net """)
-tf.app.flags.DEFINE_integer('batch_size', 8,
-                            """ training batch size """)
-tf.app.flags.DEFINE_integer('max_steps', 500000,
-                            """ max number of steps to train """)
-tf.app.flags.DEFINE_float('keep_prob', 0.7,
-                            """ keep probability for dropout """)
-tf.app.flags.DEFINE_float('learning_rate', 1e-4,
-                            """ keep probability for dropout """)
-tf.app.flags.DEFINE_bool('display_test', True,
-                            """ display the test images """)
-tf.app.flags.DEFINE_string('test_set', "car",
-                            """ either car or random """)
-
-TEST_DIR = make_checkpoint_path(FLAGS.base_dir, FLAGS)
+TEST_DIR = make_checkpoint_path(FLAGS.base_dir_flow, FLAGS)
+print(TEST_DIR)
 
 def tryint(s):
   try:
@@ -83,7 +68,7 @@ def evaluate():
 
     # Build a Graph that computes the logits predictions from the
     # inference model.
-    sflow_p = flow_net.inference(boundary,1.0)
+    sflow_p = flow_net.inference_flow(boundary,1.0)
     sflow_p = add_lattice(sflow_p)
 
     # quantities to optimize
