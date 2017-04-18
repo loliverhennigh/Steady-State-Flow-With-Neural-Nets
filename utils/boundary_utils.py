@@ -116,9 +116,9 @@ def make_boundary_curvey(length_input, shape):
 length_input = np.random.rand(19)
 boundary = make_boundary_circle(length_input, (128,128))
 
-plt.figure()
-plt.imshow(boundary)
-plt.show()
+#plt.figure()
+#plt.imshow(boundary)
+#plt.show()
 
 
 
