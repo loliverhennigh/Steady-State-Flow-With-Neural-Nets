@@ -53,12 +53,6 @@ def alphanum_key(s):
 
 def evaluate():
   """Run Eval once.
-
-  Args:
-    saver: Saver.
-    summary_writer: Summary writer.
-    top_k_op: Top K op.
-    summary_op: Summary op.
   """
   # get a list of image filenames
   filenames = glb('/data/fluid_flow_steady_state_128x128_test/*')
