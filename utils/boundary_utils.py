@@ -60,7 +60,36 @@ def sort_vertices(vertex_1, vertex_2, vertex_3):
   data.sort(key=lambda tup: tup[1])
   return data[0], data[1], data[2]
 
-def make_boundary_circle(length_input, shape):
+def slice_length(length_input, index, degree):
+  length_out = np.zeros(degree*2)
+  for i in xrange(degree*2):
+    length_out[i] = length_input[index + i - degree]
+  return length_out
+
+def get_length(length_input, index, degree, rate_curvey):
+  length_out = slice_length(length_input, index, degree)
+  total_length = 0.0
+ 
+  # determine constant b of parabola
+  b = -rate_curvey*pow(degree-1, 2)
+  sum_left = 1.0
+  sum_right = 0.0
+  for i in xrange(degree):
+    sum_left -= rate_curvey*pow(i,2)
+    sum_right += i
+  b = sum_left/sum_right
+ 
+  sum_constant = 0.0
+  for i in xrange(degree):
+    constant = rate_curvey*pow(i,2) + b*i
+    print(constant)
+    total_length += constant * length_out[i]
+    sum_constant += constant
+  print(sum_constant)
+  print(total_length)
+  return total_length
+
+def make_boundary_circle(length_input, shape, degree_curvey=5, rate_curvey=-.4):
   boundary = np.zeros(shape)
   max_length = np.min(shape)/2.0
   pos = np.zeros((2))
@@ -69,7 +98,7 @@ def make_boundary_circle(length_input, shape):
 
   x_1 = np.zeros((2))
   x_1[0] = 0 + pos[0]
-  x_1[1] = int((.5*length_input[0] + .25*length_input[1] + .25*length_input[-1])*max_length) + pos[1]
+  x_1[1] = get_length(length_input, 0, degree_curvey, rate_curvey) + pos[1]
   x_start = np.copy(x_1)
 
   x_2 = np.zeros((2))
@@ -77,9 +106,9 @@ def make_boundary_circle(length_input, shape):
   alpha = (2*np.pi)/len(length_input)
   alpha_i = 0.0
 
-  for i in xrange(len(length_input)-2):
+  for i in xrange(len(length_input)):
 
-    length = .5 * length_input[i+1] + .25 * length_input[i] + .25 * length_input[i+2]
+    length = get_length(length_input, i, degree_curvey, rate_curvey)
 
     alpha_i += alpha
 
@@ -113,12 +142,12 @@ def make_boundary_curvey(length_input, shape):
 
 
 #length_input = np.zeros((19)) + 0.5
-length_input = np.random.rand(19)
+length_input = np.random.rand(29)
 boundary = make_boundary_circle(length_input, (128,128))
 
-#plt.figure()
-#plt.imshow(boundary)
-#plt.show()
+plt.figure()
+plt.imshow(boundary)
+plt.show()
 
 
 
