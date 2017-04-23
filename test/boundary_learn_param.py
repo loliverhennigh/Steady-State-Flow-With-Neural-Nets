@@ -22,6 +22,7 @@ import input.flow_input as flow_input
 from model.lattice import *
 from utils.flow_reader import load_flow, load_boundary, load_state
 from utils.experiment_manager import make_checkpoint_path
+from utils.plot_helper import grey_to_short_rainbow
 
 import matplotlib.pyplot as plt
 
@@ -32,11 +33,13 @@ shape = [128, 256]
 fourcc = cv2.cv.CV_FOURCC('m', 'p', '4', 'v') 
 video = cv2.VideoWriter()
 
-success = video.open('figs/' + str(shape[0]) + "x" + str(shape[1]) + '_2d_video_.mov', fourcc, 40, (2*shape[1], shape[0]), True)
+success = video.open('figs/' + str(shape[0]) + "x" + str(shape[1]) + '_2d_video_.mov', fourcc, 10, (2*shape[1], shape[0]), True)
 
 
 FLOW_DIR = make_checkpoint_path(FLAGS.base_dir_flow, FLAGS)
 BOUNDARY_DIR = make_checkpoint_path(FLAGS.base_dir_boundary, FLAGS)
+print(FLOW_DIR)
+print(BOUNDARY_DIR)
 
 def tryint(s):
   try:
@@ -94,7 +97,8 @@ def evaluate():
     #loss = drag_x
     #loss = -drag_y - drag_x + loss_b
     #loss = drag_y + loss_b + drag_x
-    loss = drag_y - drag_x
+    #loss = drag_y - drag_x
+    loss = drag_x + drag_y
     #loss = drag_y + loss_b
     #loss = drag_x + drag_y
     #loss = drag_y
@@ -128,19 +132,9 @@ def evaluate():
     graph_def = tf.get_default_graph().as_graph_def(add_shapes=True)
 
     params_np = np.random.rand(batch_size,FLAGS.nr_boundary_params)
-    #params_np[0,0] = 1.0
-    #params_np[0,1] = 0.3
-    #params_np[0,2] = 0.2
-    #params_np[0,3] = 0.2
-    #params_np[0,4] = 0.2 
-    #params_np[0,5] = 0.2 
-    #params_np[0,6] = 0.2
-    #params_np[0,7] = 0.2
-    #params_np[0,8] = 0.3
-    #params_np = np.random.rand(batch_size,9)
  
     sess.run(params_op_init, feed_dict={params_op_set: params_np})
-    run_time = 1500
+    run_time = 1000
     plot_error = np.zeros((run_time))
     plot_drag_y = np.zeros((run_time))
     plot_drag_y_t = np.zeros((run_time))
@@ -153,13 +147,12 @@ def evaluate():
         plot_drag_x[i] = d_x
         plot_drag_y[i] = d_y
         plot_drag_y_t[i] = d_y_t
-      if i % 10 == 0:
+      if i % 50 == 0:
         velocity_norm_g, boundary_g = sess.run([velocity_norm, boundary],feed_dict={})
         #velocity_norm_g, boundary_g = sess.run([velocity_norm, force],feed_dict={})
-        sflow_plot = np.concatenate([10.0*velocity_norm_g[0], boundary_g[0]], axis=1)
+        sflow_plot = np.concatenate([ 5.0*velocity_norm_g[0], boundary_g[0]], axis=1)
         #sflow_plot = np.concatenate([10.0*velocity_norm_g[0], boundary_g[0,:,:,0]], axis=1)
-        sflow_plot = np.abs(np.concatenate(3*[sflow_plot], axis=2))
-        sflow_plot = np.uint8(100.0*sflow_plot)
+        sflow_plot = np.uint8(grey_to_short_rainbow(sflow_plot))
         video.write(sflow_plot)
 
     video.release()

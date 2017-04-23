@@ -26,11 +26,11 @@ tf.app.flags.DEFINE_string('base_dir_boundary', '../checkpoints_boundary',
                             """dir to store trained net boundary """)
 tf.app.flags.DEFINE_integer('batch_size', 8,
                             """ training batch size """)
-tf.app.flags.DEFINE_integer('max_steps', 500000,
+tf.app.flags.DEFINE_integer('max_steps',  50000,
                             """ max number of steps to train """)
 tf.app.flags.DEFINE_float('keep_prob', 0.7,
                             """ keep probability for dropout """)
-tf.app.flags.DEFINE_float('learning_rate', 1e-4,
+tf.app.flags.DEFINE_float('learning_rate', 5e-4,
                             """ keep probability for dropout """)
 
 # model params
@@ -42,7 +42,7 @@ tf.app.flags.DEFINE_bool('gated_res', True,
                            """ gated resnet or not """)
 tf.app.flags.DEFINE_string('nonlinearity', 'concat_elu',
                            """ nonlinearity used such as concat_elu, elu, concat_relu, relu """)
-tf.app.flags.DEFINE_integer('nr_boundary_params', 19,
+tf.app.flags.DEFINE_integer('nr_boundary_params', 39,
                             """ number of boundary paramiters """)
 
 # test params

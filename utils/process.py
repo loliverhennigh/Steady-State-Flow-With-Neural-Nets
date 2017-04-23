@@ -15,6 +15,7 @@ class Process:
     self.run_time = 0
 
   def start(self, gpu=0):
+    print(self.cmd)
     self.process = ps.subprocess.Popen(self.cmd, stdout=ps.subprocess.PIPE)
     self.pid = self.process.pid
 
