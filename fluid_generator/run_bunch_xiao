@@ -3,7 +3,7 @@
 SIZE=$1
 NUM_RUNS=$2
 TEST=$3
-COUNTER=0
+COUNTER=1
 until [  $COUNTER -gt $NUM_RUNS ]; do
   echo $COUNTER
   FLUIDDIR="/data/fluid_flow_steady_state_$SIZE"
@@ -14,11 +14,16 @@ until [  $COUNTER -gt $NUM_RUNS ]; do
   FLUIDDIR+="/sample_$COUNTER"
   mkdir $FLUIDDIR
   FLUIDDIR+="/fluid_flow"
-  CARDIR="cars/car_"
-  CARDIR+="$(echo 0000$COUNTER | tail -c 4)"
-  CARDIR+=".txt"
-  echo $CARDIR
-  ./generate_xiao_fluid_flow $SIZE $FLUIDDIR $CARDIR
+  if [$TEST -eq "car"]
+  then
+    CARDIR="cars/car_"
+    CARDIR+="$(echo 0000$COUNTER | tail -c 4)"
+    CARDIR+=".txt"
+    echo $CARDIR
+    ./generate_xiao_fluid_flow $SIZE $FLUIDDIR $CARDIR
+  else
+    ./generate_xiao_fluid_flow $SIZE $FLUIDDIR
+  fi
   let COUNTER+=1
 done
 
