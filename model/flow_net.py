@@ -119,11 +119,12 @@ def loss_bounds(true_boundary, generated_boundary):
   tf.summary.scalar('loss', loss)
   return loss
 
-def train(total_loss, lr, variables=None):
-   if variables is None:
+def train(total_loss, lr, global_step=None, variables=None):
+   if variables is None and global_step is None:
      train_op = tf.train.AdamOptimizer(lr).minimize(total_loss)
+   elif variables is None and global_step is not None:
+     train_op = tf.train.AdamOptimizer(lr).minimize(total_loss,global_step)
    else:
      train_op = tf.train.GradientDescentOptimizer(lr).minimize(total_loss, var_list=variables)
-     #train_op = tf.train.AdamOptimizer(lr).minimize(total_loss, var_list=variables)
    return train_op
 
