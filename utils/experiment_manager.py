@@ -8,9 +8,13 @@ NOT_PATH = ['base_dir_flow', 'base_dir_boundary', 'display_test', 'test_set', 'b
 def make_checkpoint_path(base_path, FLAGS):
   # make checkpoint path with all the flags specifing different directories
 
+  if 'flow' in base_path:
+    not_path = NOT_PATH + ['nr_boundary_params']
+  else:
+    not_path = NOT_PATH
   # run through all params and add them to the base path
   for k, v in FLAGS.__dict__['__flags'].items():
-    if k not in NOT_PATH:
+    if k not in not_path:
       base_path = base_path + '/' + k + '_' + str(v)
 
   return base_path

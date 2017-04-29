@@ -264,8 +264,8 @@ int main(int argc, char **argv) try
 
     if (use_car == 0){
     // number of objects between 10 and 25
-    //size_t num_objects = (rand() % 10) + 10;
-    size_t num_objects = 4*(nx/256)*(nx/256);
+    size_t num_objects = (rand() % 10) + 2;
+    //size_t num_objects = 10*(nx/256)*(nx/256);
 
     // set objects
     size_t h = 0;
@@ -277,12 +277,12 @@ int main(int argc, char **argv) try
         if (object_type == 0) // oval
         {
 	    // set inner obstacle
-            int radius_x = (rand() % 20) + 20;
-            int radius_y = (rand() % 20) + 20;
+            int radius_x = (rand() % 24) + 5;
+            int radius_y = (rand() % 24) + 5;
             int max_radius = radius_x; 
             if (radius_y > radius_x) { max_radius = radius_y; }
-	    double obsX   = (rand() % ((nx-128)-32-(2*max_radius))) + (1.0*max_radius) + 32;   // x position
-	    double obsY   = (rand() % (ny-32-(1*max_radius))) + (0.5*max_radius) + 32 ;   // y position
+	    double obsX   = (rand() % (nx-128));   // x position
+	    double obsY   = (rand() % ny);   // y position
             int alpha = (rand() % 90);
             int place_object = 1; 
             if (place_object == 1)
@@ -290,7 +290,7 @@ int main(int argc, char **argv) try
                 h++;
                 for (size_t i=32;i<nx-128;i++)
                 {
-                    for (size_t j=32;j<ny;j++)
+                    for (size_t j=0;j<ny;j++)
                     {
                         if ((pow(cos(alpha)*(i-obsX) + sin(alpha)*(j-obsY),2.0))/(radius_x*radius_x)+(pow(sin(alpha)*(i-obsX) - cos(alpha)*(j-obsY),2.0))/(radius_y*radius_y)<1.0)
                         {
@@ -304,12 +304,12 @@ int main(int argc, char **argv) try
         if (object_type == 1) // square
         {
 	    // set inner obstacle
-            int length_x = (rand() % 20) + 20;
-            int length_y = (rand() % 20) + 20;
+            int length_x = (rand() % 24) + 5;
+            int length_y = (rand() % 24) + 5;
             int max_length = length_x; 
             if (length_y > length_x) { max_length = length_y; }
-	    double obsX   = (rand() % ((nx-128)-32-(2*max_length))) + (1.0*double(max_length)) + 32;   // x position
-	    double obsY   = (rand() % (ny-32-(2*max_length))) + (1.0*double(max_length)) + 32;   // y position
+	    double obsX   = (rand() % (nx-128));   // x position
+	    double obsY   = (rand() % ny);   // y position
             int alpha_x = (rand() % 45);
             int slope_x = tan(alpha_x);
             int up_down = (rand() % 1);
@@ -319,7 +319,7 @@ int main(int argc, char **argv) try
                 h++;
                 for (size_t i=32;i<nx-128;i++)
                 {
-                    for (size_t j=32;j<ny;j++)
+                    for (size_t j=0;j<ny;j++)
                     {
                         if (up_down == 0)
                         {

@@ -26,11 +26,11 @@ tf.app.flags.DEFINE_string('base_dir_boundary', '../checkpoints_boundary',
                             """dir to store trained net boundary """)
 tf.app.flags.DEFINE_integer('batch_size', 8,
                             """ training batch size """)
-tf.app.flags.DEFINE_integer('max_steps', 500000,
+tf.app.flags.DEFINE_integer('max_steps',  50000,
                             """ max number of steps to train """)
 tf.app.flags.DEFINE_float('keep_prob', 0.7,
                             """ keep probability for dropout """)
-tf.app.flags.DEFINE_float('learning_rate', 1e-4,
+tf.app.flags.DEFINE_float('learning_rate', 5e-4,
                             """ keep probability for dropout """)
 
 # model params
@@ -42,7 +42,7 @@ tf.app.flags.DEFINE_bool('gated_res', True,
                            """ gated resnet or not """)
 tf.app.flags.DEFINE_string('nonlinearity', 'concat_elu',
                            """ nonlinearity used such as concat_elu, elu, concat_relu, relu """)
-tf.app.flags.DEFINE_integer('nr_boundary_params', 19,
+tf.app.flags.DEFINE_integer('nr_boundary_params', 39,
                             """ number of boundary paramiters """)
 
 # test params
@@ -119,11 +119,12 @@ def loss_bounds(true_boundary, generated_boundary):
   tf.summary.scalar('loss', loss)
   return loss
 
-def train(total_loss, lr, variables=None):
-   if variables is None:
+def train(total_loss, lr, global_step=None, variables=None):
+   if variables is None and global_step is None:
      train_op = tf.train.AdamOptimizer(lr).minimize(total_loss)
+   elif variables is None and global_step is not None:
+     train_op = tf.train.AdamOptimizer(lr).minimize(total_loss,global_step)
    else:
      train_op = tf.train.GradientDescentOptimizer(lr).minimize(total_loss, var_list=variables)
-     #train_op = tf.train.AdamOptimizer(lr).minimize(total_loss, var_list=variables)
    return train_op
 
