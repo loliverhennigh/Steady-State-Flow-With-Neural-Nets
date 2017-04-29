@@ -41,12 +41,6 @@ def alphanum_key(s):
 
 def evaluate():
   """Run Eval once.
-
-  Args:
-    saver: Saver.
-    summary_writer: Summary writer.
-    top_k_op: Top K op.
-    summary_op: Summary op.
   """
   # get a list of image filenames
   filenames = glb('../data/computed_car_flow/*')
