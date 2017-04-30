@@ -3,43 +3,20 @@ import tensorflow as tf
 import fnmatch
 import os
 
-NOT_PATH = ['base_dir_flow', 'base_dir_boundary', 'display_test', 'test_set', 'batch_size', 'max_steps', 'test_set']
+NOT_PATH_ANY = ['base_dir_flow', 'base_dir_boundary', 'batch_size', 'display_test', 'test_set', 'max_steps', 'test_set']
+NOT_PATH_FLOW = NOT_PATH_ANY + ['nr_boundary_params']
+NOT_PATH_BOUNDARY = NOT_PATH_ANY + ['model', 'nr_res_blocks', 'gated_res']
 
-def make_checkpoint_path(base_path, FLAGS):
+def make_checkpoint_path(base_path, FLAGS, network="flow"):
   # make checkpoint path with all the flags specifing different directories
 
-  if 'flow' in base_path:
-    not_path = NOT_PATH + ['nr_boundary_params']
-  else:
-    not_path = NOT_PATH
+  if network == "flow":
+    not_path = NOT_PATH_FLOW
+  elif network == "boundary":
+    not_path = NOT_PATH_BOUNDARY
   # run through all params and add them to the base path
   for k, v in FLAGS.__dict__['__flags'].items():
     if k not in not_path:
       base_path = base_path + '/' + k + '_' + str(v)
 
   return base_path
-
-def list_all_checkpoints(base_path, FLAGS):
-  # get a list off all the checkpoint directorys
-
-  # run through all params and add them to the base path
-  paths = []
-  for root, dirnames, filenames in os.walk(base_path):
-    for filename in fnmatch.filter(filenames, 'checkpoint'):
-      paths.append(root)
-  print(paths)
-  return paths
-
-def set_flags_given_checkpoint_path(path, FLAGS):
-  # get a list off all the checkpoint directorys
-
-  # run through all params and add them to the base path
-  split_path = path.split('/')
-  for param in split_path:
-    [param_name, param_value] = param.split('_')
-    param_type = type(FLAGS.__dict__['__flags'][param_name])
-    FLAGS.__dict__['__flags'][param_name] = param_type(param_value)
-
-
-
-

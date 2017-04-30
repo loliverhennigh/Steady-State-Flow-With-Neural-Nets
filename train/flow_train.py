@@ -14,7 +14,7 @@ from tqdm import *
 
 FLAGS = tf.app.flags.FLAGS
 
-TRAIN_DIR = make_checkpoint_path(FLAGS.base_dir_flow, FLAGS)
+TRAIN_DIR = make_checkpoint_path(FLAGS.base_dir_flow, FLAGS, network="flow")
 
 def train():
   """Train ring_net for a number of steps."""

@@ -28,12 +28,12 @@ tf.app.flags.DEFINE_integer('batch_size', 8,
                             """ training batch size """)
 tf.app.flags.DEFINE_integer('max_steps',  50000,
                             """ max number of steps to train """)
-tf.app.flags.DEFINE_float('keep_prob', 0.7,
+tf.app.flags.DEFINE_float('keep_prob', 1.0,
                             """ keep probability for dropout """)
 tf.app.flags.DEFINE_float('learning_rate', 5e-4,
                             """ keep probability for dropout """)
 
-# model params
+# model params flow
 tf.app.flags.DEFINE_string('model', 'res',
                            """ model name to train """)
 tf.app.flags.DEFINE_integer('nr_res_blocks', 1,
@@ -42,6 +42,8 @@ tf.app.flags.DEFINE_bool('gated_res', True,
                            """ gated resnet or not """)
 tf.app.flags.DEFINE_string('nonlinearity', 'concat_elu',
                            """ nonlinearity used such as concat_elu, elu, concat_relu, relu """)
+
+# model params boundary
 tf.app.flags.DEFINE_integer('nr_boundary_params', 39,
                             """ number of boundary paramiters """)
 

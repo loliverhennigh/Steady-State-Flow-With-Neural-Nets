@@ -36,8 +36,8 @@ video = cv2.VideoWriter()
 success = video.open('figs/' + str(shape[0]) + "x" + str(shape[1]) + '_2d_video_.mov', fourcc, 10, (2*shape[1], shape[0]), True)
 
 
-FLOW_DIR = make_checkpoint_path(FLAGS.base_dir_flow, FLAGS)
-BOUNDARY_DIR = make_checkpoint_path(FLAGS.base_dir_boundary, FLAGS)
+FLOW_DIR = make_checkpoint_path(FLAGS.base_dir_flow, FLAGS, network="flow")
+BOUNDARY_DIR = make_checkpoint_path(FLAGS.base_dir_boundary, FLAGS, network="boundary")
 print(FLOW_DIR)
 print(BOUNDARY_DIR)
 
@@ -154,6 +154,24 @@ def evaluate():
         #sflow_plot = np.concatenate([10.0*velocity_norm_g[0], boundary_g[0,:,:,0]], axis=1)
         sflow_plot = np.uint8(grey_to_short_rainbow(sflow_plot))
         video.write(sflow_plot)
+    
+        # display it
+        velocity_norm_g = velocity_norm_g[0,:,:,0]
+        boundary_g = boundary_g[0,:,:,0]
+        fig = plt.figure()
+        a = fig.add_subplot(1,3,1)
+        plt.imshow(velocity_norm_g)
+        a = fig.add_subplot(1,3,2)
+        plt.imshow(boundary_g)
+        a = fig.add_subplot(1,3,3)
+        plt.plot(plot_error, label="loss")
+        plt.plot(plot_drag_x, label="drag_x")
+        plt.plot(plot_drag_y, label="drag_y")
+        plt.plot(plot_drag_y_t, label="drag_y_t")
+        plt.legend()
+        plt.colorbar()
+        plt.savefig("./figs/boundary_learn_image_store/plot_" + str(i) + ".png")
+
 
     video.release()
     cv2.destroyAllWindows()
