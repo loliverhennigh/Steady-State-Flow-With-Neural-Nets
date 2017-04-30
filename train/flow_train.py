@@ -83,7 +83,8 @@ def train():
         print("loss value at " + str(loss_value))
         print("time per batch is " + str(elapsed))
 
-      if current_step%100 == 0:
+      if current_step%2000 == 0:
+        time.sleep(60)
         summary_str = sess.run(summary_op, feed_dict={})
         summary_writer.add_summary(summary_str, current_step) 
         checkpoint_path = os.path.join(TRAIN_DIR, 'model.ckpt')
