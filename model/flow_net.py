@@ -36,7 +36,7 @@ tf.app.flags.DEFINE_float('learning_rate', 5e-4,
 # model params flow
 tf.app.flags.DEFINE_string('model', 'res',
                            """ model name to train """)
-tf.app.flags.DEFINE_integer('nr_res_blocks', 1,
+tf.app.flags.DEFINE_integer('nr_res_blocks', 2,
                            """ nr res blocks """)
 tf.app.flags.DEFINE_bool('gated_res', True,
                            """ gated resnet or not """)
@@ -50,6 +50,8 @@ tf.app.flags.DEFINE_integer('nr_boundary_params', 39,
 # test params
 tf.app.flags.DEFINE_string('test_set', "car",
                             """ either car or random """)
+tf.app.flags.DEFINE_string('boundary_learn_loss', "drag_xy",
+                            """ what to mimimize in the boundary learning stuff """)
 
 def inputs_flow(batch_size):
   """makes input vector
