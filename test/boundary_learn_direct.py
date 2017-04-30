@@ -34,7 +34,7 @@ video = cv2.VideoWriter()
 
 success = video.open('figs/' + str(shape[0]) + "x" + str(shape[1]) + '_2d_video_.mov', fourcc, 4, (2*shape[1], shape[0]), True)
 
-TEST_DIR = make_checkpoint_path(FLAGS.base_dir_flow, FLAGS)
+TEST_DIR = make_checkpoint_path(FLAGS.base_dir_flow, FLAGS, network="flow")
 
 def tryint(s):
   try:

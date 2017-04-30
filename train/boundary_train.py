@@ -12,7 +12,7 @@ from utils.experiment_manager import make_checkpoint_path
 
 FLAGS = tf.app.flags.FLAGS
 
-TRAIN_DIR = make_checkpoint_path(FLAGS.base_dir_boundary, FLAGS)
+TRAIN_DIR = make_checkpoint_path(FLAGS.base_dir_boundary, FLAGS, network="boundary")
 
 def train():
   """Train ring_net for a number of steps."""
