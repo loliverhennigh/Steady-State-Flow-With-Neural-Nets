@@ -1,4 +1,4 @@
-# Convolutional Neural Networks for Steady Flow Approximation
+
 
 This repository contains an re-implementation of the paper [Convolutional Neural Networks for Steady Flow Approximation](https://www.autodeskresearch.com/publications/convolutional-neural-networks-steady-flow-approximation). The premise is to learn a mapping from boundary conditions to steady state fluid flow. There are a few differences and improvements from this work and the original paper which are discussed bellow.
 
@@ -39,7 +39,11 @@ The bellow are some preliminary results on learning boundaries that minimize the
 
 Here is a video of the learning process.
 
-[![IMAGE ALT TEXT HERE](http://img.youtube.com/vi/m28rnBexdGw/0.jpg)](https://www.youtube.com/watch?v=m28rnBexdGw)
+[![IMAGE ALT TEXT HERE](http://img.youtube.com/vi//0.jpg)](https://www.youtube.com/watch?v=1TnNSnyRVmI)
+
+I have been working on a new method to learn the boundarys. Here is a sweet vid of it working.
+
+[![IMAGE ALT TEXT HERE](http://img.youtube.com/vi//0.jpg)](https://www.youtube.com/watch?v=AFAT0Izo1AM)
 
 # Model details
 As mentioned above, this work deviates from that seen in the original paper. Instead of using Signed Distance Function as input we use a binary representation of the boundary conditions. This simplifies the input greatly. We also use a U-network approach with residual layers similar to that seen in [Pixel-CNN++](https://github.com/openai/pixel-cnn). This seems to make learning incredibly fast and decreases the requirement of a large dataset. Notably, our model is trained on only 3,000 flow images instead of the 100,000 listed in the paper and still produces comparable performance.
