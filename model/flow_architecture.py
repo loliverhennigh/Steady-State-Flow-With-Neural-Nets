@@ -245,7 +245,6 @@ def conv_res(inputs, nr_res_blocks=1, keep_prob=1.0, nonlinearity_name='concat_e
   tf.summary.image('sflow_p_x', x[:,:,:,0:3])
   tf.summary.image('sflow_p_y', x[:,:,:,3:6])
 
-
   return x
 
 def fc_conv(inputs, nonlinearity_name="elu"):
