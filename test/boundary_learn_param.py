@@ -145,7 +145,7 @@ def evaluate():
         plot_drag_x[i] = d_x
         plot_drag_y[i] = d_y
         plot_drag_y_t[i] = d_y_t
-      if (i+1) % 10 == 0:
+      if (i+1) % 5 == 0:
         # make video with opencv
         velocity_norm_g, boundary_g = sess.run([velocity_norm, boundary],feed_dict={})
         sflow_plot = np.concatenate([ 5.0*velocity_norm_g[0], boundary_g[0]], axis=1)
@@ -180,7 +180,7 @@ def evaluate():
 
     # generate video of plots
     os.system("rm ./figs/" + FLAGS.boundary_learn_loss + "_plot_video.mp4")
-    os.system("cat ./figs/boundary_learn_image_store/*.png | ffmpeg -f image2pipe -r 8 -vcodec png -i - -vcodec libx264 ./figs/" + FLAGS.boundary_learn_loss + "_plot_video.mp4")
+    os.system("cat ./figs/boundary_learn_image_store/*.png | ffmpeg -f image2pipe -r 30 -vcodec png -i - -vcodec libx264 ./figs/" + FLAGS.boundary_learn_loss + "_plot_video.mp4")
     os.system("rm -r ./figs/boundary_learn_image_store")
 
 def main(argv=None):  # pylint: disable=unused-argument
