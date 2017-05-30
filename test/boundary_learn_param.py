@@ -10,6 +10,7 @@ import csv
 import re
 from glob import glob as glb
 from tqdm import *
+import os
 
 import numpy as np
 import tensorflow as tf
@@ -33,13 +34,13 @@ shape = [128, 256]
 fourcc = cv2.cv.CV_FOURCC('m', 'p', '4', 'v') 
 video = cv2.VideoWriter()
 
-success = video.open('figs/' + str(shape[0]) + "x" + str(shape[1]) + '_2d_video_.mov', fourcc, 10, (2*shape[1], shape[0]), True)
+success = video.open('figs/' + FLAGS.boundary_learn_loss + '_video.mov', fourcc, 10, (2*shape[1], shape[0]), True)
 
 
 FLOW_DIR = make_checkpoint_path(FLAGS.base_dir_flow, FLAGS, network="flow")
 BOUNDARY_DIR = make_checkpoint_path(FLAGS.base_dir_boundary, FLAGS, network="boundary")
-print(FLOW_DIR)
-print(BOUNDARY_DIR)
+print("flow dir is " + FLOW_DIR)
+print("boundary dir is " + BOUNDARY_DIR)
 
 def tryint(s):
   try:
@@ -91,23 +92,18 @@ def evaluate():
     drag_y_t = tf.reduce_sum(force_t[:,:,:,1])
     boundary_area = tf.reduce_sum(boundary)
 
-    # loss (change this however)
-    loss_b = tf.nn.l2_loss(boundary_area-3000)/1000000.0
-    #loss = drag_y + 1.0* drag_x
-    #loss = drag_x
-    #loss = -drag_y - drag_x + loss_b
-    #loss = drag_y + loss_b + drag_x
-    #loss = drag_y - drag_x
-    loss = drag_x + drag_y
-    #loss = drag_y + loss_b
-    #loss = drag_x + drag_y
-    #loss = drag_y
+    # loss
+    if FLAGS.boundary_learn_loss == "drag_xy":
+      loss = drag_x + drag_y
+    elif FLAGS.boundary_learn_loss == "drag_x":
+      loss = drag_x
+    elif FLAGS.boundary_learn_loss == "drag_y":
+      loss = drag_y
 
     # train_op
     variables_to_train = tf.all_variables()
     variables_to_train = [variable for i, variable in enumerate(variables_to_train) if "params" in variable.name[:variable.name.index(':')]]
-    train_step = flow_net.train(loss, 0.5, variables=variables_to_train)
-    #train_step = flow_net.train(loss, 0.0005, variables=variables_to_train)
+    train_step = flow_net.train(loss, 0.4, variables=variables_to_train)
 
     # init graph
     init = tf.global_variables_initializer()
@@ -140,6 +136,8 @@ def evaluate():
     plot_drag_y_t = np.zeros((run_time))
     plot_drag_x = np.zeros((run_time))
 
+    # make store dir
+    os.system("mkdir ./figs/boundary_learn_image_store")
     for i in tqdm(xrange(run_time)):
       l, _, d_y, d_x, d_y_t = sess.run([loss, train_step, drag_y, drag_x, drag_y_t], feed_dict={})
       if i > 0:
@@ -147,18 +145,18 @@ def evaluate():
         plot_drag_x[i] = d_x
         plot_drag_y[i] = d_y
         plot_drag_y_t[i] = d_y_t
-      if i % 50 == 0:
+      if (i+1) % 5 == 0:
+        # make video with opencv
         velocity_norm_g, boundary_g = sess.run([velocity_norm, boundary],feed_dict={})
-        #velocity_norm_g, boundary_g = sess.run([velocity_norm, force],feed_dict={})
         sflow_plot = np.concatenate([ 5.0*velocity_norm_g[0], boundary_g[0]], axis=1)
-        #sflow_plot = np.concatenate([10.0*velocity_norm_g[0], boundary_g[0,:,:,0]], axis=1)
         sflow_plot = np.uint8(grey_to_short_rainbow(sflow_plot))
         video.write(sflow_plot)
     
-        # display it
+        # save plot image to make video
         velocity_norm_g = velocity_norm_g[0,:,:,0]
         boundary_g = boundary_g[0,:,:,0]
         fig = plt.figure()
+        fig.set_size_inches(15.5, 7.5)
         a = fig.add_subplot(1,3,1)
         plt.imshow(velocity_norm_g)
         a = fig.add_subplot(1,3,2)
@@ -167,36 +165,23 @@ def evaluate():
         plt.plot(plot_error, label="loss")
         plt.plot(plot_drag_x, label="drag_x")
         plt.plot(plot_drag_y, label="drag_y")
-        plt.plot(plot_drag_y_t, label="drag_y_t")
         plt.legend()
         plt.colorbar()
-        plt.savefig("./figs/boundary_learn_image_store/plot_" + str(i) + ".png")
+        plt.suptitle("minimizing loss " + FLAGS.boundary_learn_loss)
+        plt.savefig("./figs/boundary_learn_image_store/plot_" + str(i).zfill(5) + ".png")
+        if run_time - i <= 10:
+          plt.savefig("./figs/" + FLAGS.boundary_learn_loss + "_plot.png")
+          plt.show()
+        plt.close(fig)
 
-
+    # close cv video
     video.release()
     cv2.destroyAllWindows()
 
-    # calc logits 
-    #velocity_norm_g, boundary_g = sess.run([velocity_norm, boundary],feed_dict={})
-
-    # convert to display 
-    velocity_norm_g = velocity_norm_g[0,:,:,0]
-    boundary_g = boundary_g[0,:,:,0]
-      
-    # display it
-    fig = plt.figure()
-    a = fig.add_subplot(1,3,1)
-    plt.imshow(velocity_norm_g)
-    a = fig.add_subplot(1,3,2)
-    plt.imshow(boundary_g)
-    a = fig.add_subplot(1,3,3)
-    plt.plot(plot_error, label="loss")
-    plt.plot(plot_drag_x, label="drag_x")
-    plt.plot(plot_drag_y, label="drag_y")
-    plt.plot(plot_drag_y_t, label="drag_y_t")
-    plt.legend()
-    plt.colorbar()
-    plt.show()
+    # generate video of plots
+    os.system("rm ./figs/" + FLAGS.boundary_learn_loss + "_plot_video.mp4")
+    os.system("cat ./figs/boundary_learn_image_store/*.png | ffmpeg -f image2pipe -r 30 -vcodec png -i - -vcodec libx264 ./figs/" + FLAGS.boundary_learn_loss + "_plot_video.mp4")
+    os.system("rm -r ./figs/boundary_learn_image_store")
 
 def main(argv=None):  # pylint: disable=unused-argument
   evaluate()
