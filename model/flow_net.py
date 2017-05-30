@@ -14,6 +14,7 @@ import numpy as np
 import flow_architecture
 import input.flow_input as flow_input
 import utils.boundary_utils as boundary_utils
+import lb_solver as lb
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -92,25 +93,14 @@ def inference_flow(boundary, keep_prob):
   return sflow_p
 
 def inference_bounds(length_input):
-  """Builds network.
-  Args:
-    inputs: input to network 
-  """
   with tf.variable_scope("boundary_network") as scope:
     boundary = flow_architecture.fc_conv(length_input)
   tf.summary.image('boundarys_g', boundary)
   return boundary
 
-def loss_flow(sflow_p, sflow):
-  """Calc loss for predition on image of mask.
-  Args.
-    inputs: prediction image 
-    mask: true image 
-
-  Return:
-    error: loss value
-  """
-  loss = tf.nn.l2_loss(sflow_p - sflow)
+def loss_flow(sflow_p, boundary, u_in, seq_length, density=1.0, tau=1.0):
+  sflow_p_out = lb.lbm_seq(sflow_p, boundary, u_in, seq_length, density=density, tau=tau)
+  loss = tf.nn.l2_loss(sflow_p - sflow_p_out)
   tf.summary.scalar('loss', loss)
   return loss
 
