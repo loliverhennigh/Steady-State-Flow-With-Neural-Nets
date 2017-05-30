@@ -3,7 +3,6 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 
-
 def fill_bottom_flat_triangle(boundary, vertex_1, vertex_2, vertex_3):
   inv_slope_1 = (vertex_2[0] - vertex_1[0]) / (vertex_2[1] - vertex_1[1])
   inv_slope_2 = (vertex_3[0] - vertex_1[0]) / (vertex_3[1] - vertex_1[1])
@@ -54,6 +53,15 @@ def draw_triangle(boundary, vertex_1, vertex_2, vertex_3):
     fill_top_flat_triangle(boundary, vertex_2, vertex_4, vertex_3)
 
   return boundary
+
+def draw_rectangle(boundary, vertex_1, vertex_2, vertex_3):
+  # not implemented
+  boundary = draw_triangle(boundary, vertex_1, vertex_2, vertex_3)
+  vertex_4 = 
+  
+def draw_ovel(boundary, vertex_1, cord_1, cord_2, angle, nr_angles=20):
+  for i in xrange(nr_angles):
+    x_length = cos(
 
 def sort_vertices(vertex_1, vertex_2, vertex_3):
   data = [vertex_1, vertex_2, vertex_3]
@@ -118,7 +126,6 @@ def make_boundary_circle(length_input, shape, degree=9, rate_curvy=-.01):
 
   return boundary
 
-#length_input = np.zeros((19)) + 0.5
 length_input = np.random.rand(39)
 boundary = make_boundary_circle(length_input, (128,128))
 

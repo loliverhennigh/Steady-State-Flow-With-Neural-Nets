@@ -14,6 +14,7 @@ import numpy as np
 import flow_architecture
 import input.flow_input as flow_input
 import utils.boundary_utils as boundary_utils
+import lb_solver as lb
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -43,7 +44,6 @@ tf.app.flags.DEFINE_bool('gated_res', True,
 tf.app.flags.DEFINE_string('nonlinearity', 'concat_elu',
                            """ nonlinearity used such as concat_elu, elu, concat_relu, relu """)
 
-<<<<<<< HEAD
 # model params boundary
 tf.app.flags.DEFINE_integer('nr_boundary_params', 39,
                             """ number of boundary paramiters """)
@@ -95,38 +95,14 @@ def inference_flow(boundary, keep_prob):
   return sflow_p
 
 def inference_bounds(length_input):
-  """Builds network.
-  Args:
-    inputs: input to network 
-  """
   with tf.variable_scope("boundary_network") as scope:
     boundary = flow_architecture.fc_conv(length_input)
   tf.summary.image('boundarys_g', boundary)
   return boundary
 
-def loss_flow(sflow_p, sflow):
-  """Calc loss for predition on image of mask.
-  Args.
-    inputs: prediction image 
-    mask: true image 
-
-  Return:
-    error: loss value
-  """
-=======
-def inputs(batch_size):
-  boundary, sflow = flow_input.flow_inputs(batch_size)
-  return boundary, sflow 
-
-def inference(boundary, keep_prob):
-  if FLAGS.model == "res": 
-    sflow_p = flow_architecture.conv_res(boundary, nr_res_blocks=FLAGS.nr_res_blocks, keep_prob=keep_prob, nonlinearity_name=FLAGS.nonlinearity, gated=FLAGS.gated_res)
-
-  return sflow_p
-
-def loss_image(sflow_p, sflow):
->>>>>>> 7af6411fc389358819d344227a7845c514a3a4ca
-  loss = tf.nn.l2_loss(sflow_p - sflow)
+def loss_flow(sflow_p, boundary, u_in, seq_length, density=1.0, tau=1.0):
+  sflow_p_out = lb.lbm_seq(sflow_p, boundary, u_in, seq_length, density=density, tau=tau)
+  loss = tf.nn.l2_loss(sflow_p - sflow_p_out)
   tf.summary.scalar('loss', loss)
   return loss
 
