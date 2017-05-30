@@ -1,0 +1,98 @@
+\documentclass{article}
+
+% if you need to pass options to natbib, use, e.g.:
+% \PassOptionsToPackage{numbers, compress}{natbib}
+% before loading nips_2017
+%
+% to avoid loading the natbib package, add option nonatbib:
+\usepackage[nonatbib,final]{nips_2017}
+
+%\usepackage{nips_2017}
+
+% to compile a camera-ready version, add the [final] option, e.g.:
+\usepackage[final]{nips_2017}
+
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage[pdftex]{graphicx}
+\usepackage{subfigure}
+\usepackage{wrapfig}
+\usepackage{amsmath}
+
+\title{Optimizing Object Design in Steady State Fluid Flow with Deep Neural Networks}
+
+% The \author macro works with any number of authors. There are two
+% commands used to separate the names and addresses of multiple
+% authors: \And and \AND.
+%
+% Using \And between authors leaves it to LaTeX to determine where to
+% break the lines. Using \AND forces a line break at that point. So,
+% if LaTeX puts 3 of 4 authors names on the first line, and the last
+% on the second line, try using \AND instead of \And before the third
+% author name.
+
+\author{
+  Oliver Hennigh \\
+  Mexico \\
+  \texttt{loliverhennigh101@gmail.com} \\
+}
+
+\begin{document}
+% \nipsfinalcopy is no longer used
+
+\maketitle
+
+\begin{abstract}
+
+Optimizing object geometry to have desired flow properties is a very difficult task. (Say one more thing). In this paper, we propose a unique and novel method that makes use deep neural networks to generate objects with desired flow properties such as lift and drag. Our method works by training a neural network as a suraget model for generating steady state fluid flow and then uses the differentiable nature of this network to perform gradient decent on the object design. This method proves extremely powerful and is able to quickly produce geometries with the desired properties.
+
+\end{abstract}
+
+\section{Introduction}
+
+( paragraph about why optimization is important )
+
+( paragraph talking about steady state fluid flow )
+
+( paragraph describing model )
+
+Our method revolves around the differentiable nature of deep neural networks. In ecense, we frase the optimization problem as optimizing a list of real valued parameters that corrispond with a boundary to some fitness function. 
+
+( contributions list)
+
+This work has the following contributions.
+\begin{itemize}
+  \item We present a novel way to use neural networks to optimize object geometry in steady state fluid flow. We only look at fluid flow if this paper however in principle this method could be applied to optimizing design for other problems where neural network suragate models are used.
+  \item We offer a new network architeture for predicting steady state fluid flow that out performs other methods.
+  %\item We present a new totally unsupervised loss function for training networks to predict steady state flow.
+\end{itemize}
+
+\section{Related Work}
+
+Our method make use of a network that takes in boundary conditions and subsequently predicts the steady state flow around these boundarys. This original idea was first presented in \cite{guo2016convolutional}. Our flow prediction network has several key difference to this original work. First, we heavily improve the network architecture by keeping the network all convolutional and taking advantage of both residual connections and a U-Network architeture. This proved to drasticaly improve accuracy while maintain fast computation. Second, it takes in the binary representation of the boundary conditions instead of the Signed distance map. We found that with our improved network architecture, we over came the issure in their work using such a representation of the boundary.
+
+\section{Method}
+
+In this section we outline the pieces of our model. We look at the two network architetures of inter and explain how they can be used in tandum perform boundary optimization.
+
+\subsection{Flow Prediction Network}
+
+\subsection{Boundary}
+
+\section{Experiments}
+In the following sections we outline varius test 
+
+
+\section{Conclusion}
+lkd
+
+\bibliography{references}
+\bibliographystyle{ieeetr}
+
+\end{document}
