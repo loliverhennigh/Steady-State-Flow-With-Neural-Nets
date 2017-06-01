@@ -141,7 +141,7 @@ def loss_flow(sflow_p, boundary, seq_length, density=1.0, tau=1.0):
   #tf.summary.scalar('mse_last_loss', loss_mse_last)
  
   # sum up losses 
-  loss = (0.0003*loss_p_div + 0.003*loss_t_div + 0.01*loss_mse_predicted)/FLAGS.batch_size
+  loss = (0.0010*loss_p_div + 0.003*loss_t_div + 0.01*loss_mse_predicted)/FLAGS.batch_size
   #loss = (0.01*loss_p_div + 0.01*loss_t_div + loss_mse_last + 0.01*loss_mse_predicted)/FLAGS.batch_size
   #loss = (loss_mse_last)/FLAGS.batch_size
   tf.summary.scalar('total_loss', loss)
