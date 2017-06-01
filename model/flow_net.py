@@ -14,6 +14,7 @@ import numpy as np
 import flow_architecture
 import input.flow_input as flow_input
 import utils.boundary_utils as boundary_utils
+import lattice as lat
 import lb_solver as lb
 
 FLAGS = tf.app.flags.FLAGS
@@ -31,8 +32,10 @@ tf.app.flags.DEFINE_integer('max_steps',  50000,
                             """ max number of steps to train """)
 tf.app.flags.DEFINE_float('keep_prob', 1.0,
                             """ keep probability for dropout """)
-tf.app.flags.DEFINE_float('learning_rate', 5e-4,
+tf.app.flags.DEFINE_float('learning_rate', 1e-4,
                             """ keep probability for dropout """)
+tf.app.flags.DEFINE_string('shape', '128x256',
+                            """ shape of flow """)
 
 # model params flow
 tf.app.flags.DEFINE_string('model', 'res',
@@ -54,26 +57,35 @@ tf.app.flags.DEFINE_string('test_set', "car",
 tf.app.flags.DEFINE_string('boundary_learn_loss', "drag_xy",
                             """ what to mimimize in the boundary learning stuff """)
 
-def inputs_flow(batch_size):
+def inputs_flow(batch_size, shape):
   """makes input vector
   Return:
     x: input vector, may be filled 
   """
-  boundary, sflow = flow_input.flow_inputs(batch_size)
-  return boundary, sflow 
+  boundary = tf.placeholder(tf.float32, [batch_size] + shape + [1])
+  tf.summary.image('boundarys', boundary)
+  return boundary
 
-def inputs_bounds(input_dims, batch_size):
+def inputs_bounds(input_dims, batch_size, shape):
   """makes input vector
   Return:
     x: input vector, may be filled 
   """
   length_input = tf.placeholder(tf.float32, [batch_size, input_dims])
-  boundary = tf.placeholder(tf.float32, [batch_size, 128, 256, 1])
+  boundary = tf.placeholder(tf.float32, [batch_size] + shape + [1])
   tf.summary.image('boundarys', boundary)
   return length_input, boundary
 
-def feed_dict_bounds(input_dims, batch_size):
-  shape = [128, 256]
+def feed_dict_flows(batch_size, shape):
+  boundarys = []
+  for i in xrange(batch_size):
+    boundarys.append(boundary_utils.make_rand_boundary(shape))
+  boundarys = np.expand_dims(boundarys, axis=0)
+  boundarys = np.concatenate(boundarys)
+  boundarys = np.expand_dims(boundarys, axis=3)
+  return boundarys
+
+def feed_dict_bounds(input_dims, batch_size, shape):
   length_input = np.random.rand(batch_size, input_dims)
   boundarys = []
   for i in xrange(batch_size):
@@ -100,10 +112,44 @@ def inference_bounds(length_input):
   tf.summary.image('boundarys_g', boundary)
   return boundary
 
-def loss_flow(sflow_p, boundary, u_in, seq_length, density=1.0, tau=1.0):
-  sflow_p_out = lb.lbm_seq(sflow_p, boundary, u_in, seq_length, density=density, tau=tau)
-  loss = tf.nn.l2_loss(sflow_p - sflow_p_out)
-  tf.summary.scalar('loss', loss)
+def loss_flow(sflow_p, boundary, seq_length, density=1.0, tau=1.0):
+  shape = boundary.get_shape()
+  shape = [int(shape[1]), int(shape[2])]
+
+  # make parabolic input velocity
+  u_in = lb.make_u_input(shape)
+
+  # solve on flow solver and add up losses
+  sflow_t_list = lb.lbm_seq(sflow_p, boundary, u_in, seq_length, init_density=density, tau=tau)
+
+  # divergence of the predicted flow
+  loss_p_div = lb.loss_divergence(sflow_p)
+  #loss_p_div = 0.0
+  tf.summary.scalar('p_div_loss', loss_p_div)
+
+  # divergence of flow after iterating with flow solver
+  #loss_t_div = lb.loss_divergence(sflow_t_list[-1])
+  loss_t_div = 0.0
+  tf.summary.scalar('t_div_loss', loss_t_div)
+
+  # mse between predicted flow and last state of flow solver
+  loss_mse_predicted = tf.nn.l2_loss(sflow_p - tf.stop_gradient(sflow_t_list[-1]))
+  tf.summary.scalar('mse_predicted_loss', loss_mse_predicted)
+
+  # mse between last two state of flow from flow solver
+  #loss_mse_last = tf.nn.l2_loss(sflow_t_list[-2] - sflow_t_list[-1])
+  #tf.summary.scalar('mse_last_loss', loss_mse_last)
+ 
+  # sum up losses 
+  loss = (0.0003*loss_p_div + 0.003*loss_t_div + 0.01*loss_mse_predicted)/FLAGS.batch_size
+  #loss = (0.01*loss_p_div + 0.01*loss_t_div + loss_mse_last + 0.01*loss_mse_predicted)/FLAGS.batch_size
+  #loss = (loss_mse_last)/FLAGS.batch_size
+  tf.summary.scalar('total_loss', loss)
+  # image summary
+  tf.summary.image('sflow_p_x', lb.f_to_u_full(sflow_p)[:,:,:,0:1])
+  tf.summary.image('sflow_p_y', lb.f_to_u_full(sflow_p)[:,:,:,1:2])
+  tf.summary.image('sflow_p_out_x', lb.f_to_u_full(sflow_t_list[-1])[:,:,:,0:1])
+  tf.summary.image('sflow_p_out_y', lb.f_to_u_full(sflow_t_list[-1])[:,:,:,1:2])
   return loss
 
 def loss_bounds(true_boundary, generated_boundary):
@@ -117,7 +163,12 @@ def train(total_loss, lr, global_step=None, variables=None):
    if variables is None and global_step is None:
      train_op = tf.train.AdamOptimizer(lr).minimize(total_loss)
    elif variables is None and global_step is not None:
-     train_op = tf.train.AdamOptimizer(lr).minimize(total_loss,global_step)
+     #train_op = tf.train.AdamOptimizer(lr).minimize(total_loss,global_step)
+     opt = tf.train.AdamOptimizer(lr)
+     gvs = opt.compute_gradients(total_loss)
+     capped_gvs = [(tf.clip_by_value(grad, -1, 1), var) for grad, var in gvs]
+     train_op = opt.apply_gradients(capped_gvs, global_step)
+     #train_op = tf.train.AdamOptimizer(lr).minimize(total_loss,global_step)
    else:
      train_op = tf.train.GradientDescentOptimizer(lr).minimize(total_loss, var_list=variables)
    return train_op

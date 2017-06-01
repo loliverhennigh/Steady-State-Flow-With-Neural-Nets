@@ -2,9 +2,9 @@
 """functions used to construct different architectures  
 """
 
-
 import tensorflow as tf
 import numpy as np
+import lb_solver as lb
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -240,11 +240,8 @@ def conv_res(inputs, nr_res_blocks=1, keep_prob=1.0, nonlinearity_name='concat_e
       x = res_block(x, filter_size=filter_size, nonlinearity=nonlinearity, keep_p=keep_prob, gated=gated, name="resnet_up_4_" + str(i))
   
   x = conv_layer(x, 3, 1, 9, "last_conv")
-  x = tf.nn.tanh(x) 
-
-  tf.summary.image('sflow_p_x', x[:,:,:,0:3])
-  tf.summary.image('sflow_p_y', x[:,:,:,3:6])
-
+  x = tf.nn.tanh(x/100.0)
+  x = lb.add_weights_f(x)
   return x
 
 def fc_conv(inputs, nonlinearity_name="elu"):

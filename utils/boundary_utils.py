@@ -1,67 +1,43 @@
 
 import numpy as np
-
+import cv2
 import matplotlib.pyplot as plt
 
-def fill_bottom_flat_triangle(boundary, vertex_1, vertex_2, vertex_3):
-  inv_slope_1 = (vertex_2[0] - vertex_1[0]) / (vertex_2[1] - vertex_1[1])
-  inv_slope_2 = (vertex_3[0] - vertex_1[0]) / (vertex_3[1] - vertex_1[1])
-
-  cur_x_1 = vertex_1[0]
-  cur_x_2 = vertex_1[0]
-
-  for i in xrange(int(vertex_1[1]),  int(vertex_2[1]), 1):
-    max_cur = max(cur_x_1, cur_x_2)
-    min_cur = min(cur_x_1, cur_x_2)
-    #boundary[int(min_cur-1.5):int(max_cur+1.5),i] = 1.0
-    boundary[int(np.floor(min_cur-.2)):int(np.floor(max_cur+.2)),i] = 1.0
-    cur_x_1 += inv_slope_1
-    cur_x_2 += inv_slope_2
-
-  return boundary
-
-def fill_top_flat_triangle(boundary, vertex_1, vertex_2, vertex_3):
-  inv_slope_1 = (vertex_3[0] - vertex_1[0]) / (vertex_3[1] - vertex_1[1])
-  inv_slope_2 = (vertex_3[0] - vertex_2[0]) / (vertex_3[1] - vertex_2[1])
-
-  cur_x_1 = vertex_3[0]
-  cur_x_2 = vertex_3[0]
-
-  for i in xrange(int(vertex_3[1]),  int(vertex_2[1]), -1):
-    max_cur = max(cur_x_1, cur_x_2)
-    min_cur = min(cur_x_1, cur_x_2)
-    #boundary[int(min_cur-1.5):int(max_cur+1.5),i] = 1.0
-    boundary[int(np.floor(min_cur-.2)):int(np.floor(max_cur+.2)),i] = 1.0
-    cur_x_1 -= inv_slope_1
-    cur_x_2 -= inv_slope_2
-
-  return boundary
-
 def draw_triangle(boundary, vertex_1, vertex_2, vertex_3):
-  vertex_1, vertex_2, vertex_3 = sort_vertices(vertex_1, vertex_2, vertex_3)
-
-  if vertex_2[1] == vertex_3[1]:
-    fill_bottom_flat_triangle(boundary, vertex_1, vertex_2, vertex_3)
-  elif vertex_1[1] == vertex_2[1]:
-    fill_top_flat_triangle(boundary, vertex_1, vertex_2, vertex_3)
-  else:
-    vertex_4 = np.zeros((2))
-    vertex_4[0] = int(np.floor(vertex_1[0] + ((vertex_2[1] - vertex_1[1]) / (vertex_3[1] - vertex_1[1])) * (vertex_3[0] - vertex_1[0])))
-    vertex_4[1] = vertex_2[1] - 0.5
-    #vertex_4[1] = vertex_2[1] 
-    fill_bottom_flat_triangle(boundary, vertex_1, vertex_2, vertex_4)
-    fill_top_flat_triangle(boundary, vertex_2, vertex_4, vertex_3)
-
+  #triangle = np.array([[vertex_1[0],vertex_1[1]],[vertex_2[0],vertex_2[1]],[vertex_3[0],vertex_3[1]]], np.int32)
+  triangle = np.array([[vertex_1[1],vertex_1[0]],[vertex_2[1],vertex_2[0]],[vertex_3[1],vertex_3[0]]], np.int32)
+  triangle = triangle.reshape((-1,1,2))
+  cv2.fillConvexPoly(boundary,triangle,1)
   return boundary
 
-def draw_rectangle(boundary, vertex_1, vertex_2, vertex_3):
-  # not implemented
-  boundary = draw_triangle(boundary, vertex_1, vertex_2, vertex_3)
-  vertex_4 = 
-  
-def draw_ovel(boundary, vertex_1, cord_1, cord_2, angle, nr_angles=20):
+def draw_ovel(boundary, vertex, cord_1, cord_2, angle, nr_angles=20):
+
+  alpha = (2*np.pi)/nr_angles
+  alpha_i = 0.0
+  degree_i = angle
+
+  x_1 = np.zeros((2))
+  length = np.square(np.sin(degree_i))*cord_1 + np.square(np.cos(degree_i))*cord_2
+  x_1[0] = int(np.sin(alpha_i)*length + vertex[0])
+  x_1[1] = int(np.cos(alpha_i)*length + vertex[1])
+  x_2 = np.copy(x_1)
+  x_start = np.copy(x_1)
+
   for i in xrange(nr_angles):
-    x_length = cos(
+    length = np.square(np.sin(degree_i)*cord_1)/cord_1 + np.square(np.cos(degree_i)*cord_2)/cord_2
+    x_2[0] = int(np.sin(alpha_i)*length + vertex[0])
+    x_2[1] = int(np.cos(alpha_i)*length + vertex[1])
+
+    alpha_i -= alpha
+    degree_i -= alpha
+
+    draw_triangle(boundary, vertex, x_1, x_2)
+ 
+    x_1 = np.copy(x_2)
+
+  draw_triangle(boundary, vertex, x_start, x_2)
+
+  return boundary
 
 def sort_vertices(vertex_1, vertex_2, vertex_3):
   data = [vertex_1, vertex_2, vertex_3]
@@ -91,6 +67,12 @@ def get_length(length_input, index, degree, rate_curvy):
     total_length += constant * length_out[i]
     sum_constant += constant
   return total_length
+
+def rand_vertex(range_x, range_y):
+  pos_x = np.random.randint(range_x[0], range_x[1])
+  pos_y = np.random.randint(range_y[0], range_y[1])
+  vertex = np.array([pos_x, pos_y])
+  return vertex
 
 def make_boundary_circle(length_input, shape, degree=9, rate_curvy=-.01):
   boundary = np.zeros(shape)
@@ -126,12 +108,44 @@ def make_boundary_circle(length_input, shape, degree=9, rate_curvy=-.01):
 
   return boundary
 
-length_input = np.random.rand(39)
-boundary = make_boundary_circle(length_input, (128,128))
+#def make_rand_boundary(shape, num_objects_range=[2,12], size_range=[10,30], max_boundary=2500):
+def make_rand_boundary(shape, num_objects_range=[0,2], size_range=[10,30], max_boundary=2500):
+  boundary = np.zeros(shape)
+  num_objects = np.random.randint(num_objects_range[0], num_objects_range[1])
+  for i in xrange(num_objects):
+    object_type = np.random.randint(0,2)
+    # draw circle
+    if object_type == 0:
+      size_x = np.random.randint(size_range[0], size_range[1])
+      size_y = np.random.randint(size_range[0], size_range[1])
+      angle = np.random.randint(0, 90)
+      max_length = np.max([size_x, size_y])
+      vertex = rand_vertex([max_length, shape[0]-max_length], [max_length+40, shape[1]-max_length-40])
+      boundary = draw_ovel(boundary, vertex, size_x, size_y, angle, nr_angles=20)
+    if object_type == 1:
+      size_x_1 = np.random.randint(-size_range[1], size_range[1])
+      size_y_1 = np.random.randint(-size_range[1], size_range[1])
+      size_x_2 = np.random.randint(-size_range[1], size_range[1])
+      size_y_2 = np.random.randint(-size_range[1], size_range[1])
+      max_length_x = np.max([np.abs(size_x_1), np.abs(size_x_2)])
+      max_length_y = np.max([np.abs(size_y_1), np.abs(size_y_2)])
+      vertex = rand_vertex([max_length_x, shape[0]-max_length_x], [max_length_y+40, shape[1]-max_length_y-40])
+      boundary = draw_triangle(boundary, vertex, [vertex[0]+size_x_2, vertex[1]+size_y_2], [vertex[0]+size_x_1, vertex[1]+size_y_1])
+    if np.sum(boundary) > max_boundary:
+      break
+  boundary[0:2,:] = 1
+  boundary[-3:-1,:] = 1
+  return boundary
 
-#plt.figure()
-#plt.imshow(boundary)
-#plt.show()
+"""
+for i in xrange(10):     
+  length_input = np.random.rand(30)
+  #boundary = make_boundary_circle(length_input, [256,512])
+  boundary = make_rand_boundary([256,512])
+  plt.figure()
+  plt.imshow(boundary)
+  plt.show()
+"""
 
 
 

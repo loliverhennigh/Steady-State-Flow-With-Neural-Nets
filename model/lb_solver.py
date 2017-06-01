@@ -1,6 +1,7 @@
 
 import numpy as np
 import tensorflow as tf
+import divergence as divergence
 
 def _make_kernel(a):
   """Transform a 2D array into a convolution kernel"""
@@ -59,6 +60,11 @@ def _u_kernel_D2Q9():
   u_kernel = tf.constant(u_kernel, dtype=tf.float32)
   return u_kernel
 
+def _weights_D2Q9():
+  weights = tf.constant(np.array([1./9., 1./36., 1./9., 1./36., 1./9., 1./36., 1./9., 1./36., 4./9.]), dtype=1)
+  weights = tf.reshape(weights, [1,1,1,9])
+  return weights
+
 def _create_boundary_cutter(boundary, solver_type="D2Q9"):
   if solver_type == "D2Q9":
     boundary_cutter = tf.concat( 8 * [boundary] + [tf.zeros_like(boundary)], axis=3)
@@ -67,14 +73,14 @@ def _create_boundary_cutter(boundary, solver_type="D2Q9"):
 
 def _set_velocity_boundary(f, u, density, pos="y_lower"):
   if pos == "y_lower":
-    f = f[:,:,1:]
+    f_out = f[:,:,1:]
     f_edge = tf.split(f[:,:,0:1], 9, axis=3)
     f_edge[0] = f_edge[4] + (2.0/3.0)*density*u
     f_edge[1] = f_edge[5] + (1.0/6.0)*density*u - 0.5*(f_edge[2]-f_edge[6])
     f_edge[7] = f_edge[3] + (1.0/6.0)*density*u + 0.5*(f_edge[2]-f_edge[6])
     f_edge = tf.stack(f_edge, axis=3)[:,:,:,:,0]
-    f = tf.concat([f_edge,f],axis=2)
-  return f
+    f_out = tf.concat([f_edge,f_out],axis=2)
+  return f_out
 
 def _pad_f(f):
   f_mobius = tf.concat(axis=1, values=[f[:,-2:-1], f, f[:,0:1]]) 
@@ -90,14 +96,6 @@ def _bounce_back(f, boundary_cutter, boundary_kernel):
   f_boundary = tf.multiply(f, boundary_cutter)
   f_boundary = _simple_conv(f_boundary, boundary_kernel)
   return f_boundary 
-
-def _f_to_density(f, boundary):
-  density = tf.expand_dims(tf.reduce_sum(f, 3), 3)
-  return density
- 
-def _f_to_u(f, u_kernel, density, boundary):
-  u = tf.div(_simple_conv(f, u_kernel), density)
-  return u
 
 def _u_to_feq(u, density):
   t1 = 4.0/9 
@@ -135,12 +133,63 @@ def _collision(f, feq, tau):
 def _combine_boundary(f, f_boundary, boundary_cutter_inv):
   return tf.multiply(f, boundary_cutter_inv) + f_boundary
 
+def _f_to_density(f, boundary):
+  density = tf.expand_dims(tf.reduce_sum(f, 3), 3)
+  return density
+ 
+def _f_to_u(f, u_kernel, density, boundary):
+  u = tf.div(_simple_conv(f, u_kernel), density)
+  return u
+
+def f_to_u_full(f):
+  u_kernel = _u_kernel_D2Q9()
+  density = tf.expand_dims(tf.reduce_sum(f, 3), 3)
+  u = tf.div(_simple_conv(f, u_kernel), density)
+  return u
+
 def zeros_f(shape, density=1.0, solver_type="D2Q9"):
   if solver_type == "D2Q9":
     f = np.zeros([1] + shape + [9], dtype=np.float32)
-    f = f + density/9.0
-  f = tf.Variable(f)
+    f[:,:,:,0] = 1.0*density/9.0
+    f[:,:,:,1] = 1.0*density/36.0
+    f[:,:,:,2] = 1.0*density/9.0
+    f[:,:,:,3] = 1.0*density/36.0
+    f[:,:,:,4] = 1.0*density/9.0
+    f[:,:,:,5] = 1.0*density/36.0
+    f[:,:,:,6] = 1.0*density/9.0
+    f[:,:,:,7] = 1.0*density/36.0
+    f[:,:,:,8] = 4.0*density/9.0
+  #f = tf.Variable(f)
+  f = tf.constant(f)
   return f
+
+def add_weights_f(f, density=1.0):
+  weights = _weights_D2Q9()
+  f = f + weights
+  return f 
+
+def sub_weights_f(f, density=1.0):
+  weights = _weights_D2Q9()
+  f = f - weights
+  return f 
+
+def make_u_input(shape, value=0.1):
+  u = np.zeros((1,shape[0],1,1))
+  l = shape[0] - 2
+  for i in xrange(shape[0]):
+    yp = i - 1.5
+    vx = value*4.0/(l*l)*(l*yp - yp*yp)
+    u[0,i,0,0] = vx
+  u = u.astype(np.float32)
+  u[0,0:2,0,0] = 0.0
+  u[0,-3:-1,0,0] = 0.0
+  u = tf.constant(u)
+  return u
+
+def loss_divergence(f):
+  u = f_to_u_full(f)
+  div = divergence.spatial_divergence_2d(u)
+  return tf.reduce_sum(div)
 
 def lbm_step(f, boundary, u_in, density=1.0, tau=1.7):
   # creates step to run the lattice boltzmann solver
@@ -179,16 +228,17 @@ def lbm_step(f, boundary, u_in, density=1.0, tau=1.7):
 
   return step, u, f
 
-def lbm_seq(f, boundary, u_in, seq_length, density=1.0, tau=1.7):
+def lbm_seq(f, boundary, u_in, seq_length, init_density=1.0, tau=1.7):
   # this function is really just used for training
   transfer_kernel = _transfer_kernel_D2Q9()
   u_kernel = _u_kernel_D2Q9()
   boundary_kernel = _boundary_kernel_D2Q9()
   boundary_cutter, boundary_cutter_inv = _create_boundary_cutter(boundary)
 
+  f_store = []
   for i in xrange(seq_length):
     # set velcity in
-    f_init_vel =  _set_velocity_boundary(f, u_in, density, pos="y_lower")
+    f_init_vel =  _set_velocity_boundary(f, u_in, init_density, pos="y_lower")
     # propagate
     f_propagate = _propagate(f_init_vel, transfer_kernel)
     # split between boundary and not boundary
@@ -204,8 +254,9 @@ def lbm_seq(f, boundary, u_in, seq_length, density=1.0, tau=1.7):
     f_collision = _collision(f_propagate, feq, tau)
     # add boundarys back in
     f = _combine_boundary(f_collision, f_boundary, boundary_cutter_inv)
+    f_store.append(f)
 
-  return f
+  return f_store
 
 
 

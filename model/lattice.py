@@ -73,7 +73,8 @@ def simple_trans_conv_3d(x, k):
 def get_weights(lattice_size):
   # returns the lattice weights given the size of lattice
   if lattice_size == 9:
-    return tf.constant(np.array([4./9., 1./9., 1./9., 1./9., 1./9., 1./36., 1./36., 1./36., 1./36.]), dtype=1)
+    #return tf.constant(np.array([4./9., 1./9., 1./9., 1./9., 1./9., 1./36., 1./36., 1./36., 1./36.]), dtype=1)
+    return tf.constant(np.array([1./9., 1./36., 1./9., 1./36., 1./9., 1./36., 1./9., 1./36., 4./9.]), dtype=1)
   elif lattice_size == 15:
     return tf.constant(np.array([2./9., 1./9., 1./9., 1./9., 1./9.,  1./9.,  1./9., 1./72., 1./72. , 1./72., 1./72., 1./72., 1./72., 1./72., 1./72.]), dtype=1)
 
@@ -81,7 +82,8 @@ def get_lveloc(lattice_size):
   # returns the lattice weights given the size of lattice
   if lattice_size == 9:
     #return tf.constant(np.array([ [0,0], [1,0], [0,1], [-1,0], [0,-1], [1,1], [-1,1], [-1,-1], [1,-1] ]), dtype=1)
-    return tf.constant(np.array([ [0,0], [0,1], [1,0], [0,-1], [-1,0], [1,1], [1,-1], [-1,-1], [-1,1] ]), dtype=1)
+    #return tf.constant(np.array([ [0,0], [0,1], [1,0], [0,-1], [-1,0], [1,1], [1,-1], [-1,-1], [-1,1] ]), dtype=1)
+    return tf.constant(np.array([ [1,0], [1,1], [0,1], [-1,1], [-1,0], [-1,-1], [0,-1], [1,-1], [0,0] ]), dtype=1)
   elif lattice_size == 15:
     return tf.constant(np.array([ [ 0, 0, 0], [ 1, 0, 0], [-1, 0, 0], [ 0, 1, 0], [ 0,-1, 0], [ 0, 0, 1], [ 0, 0,-1], [ 1, 1, 1], [-1,-1,-1], [ 1, 1,-1], [-1,-1, 1], [ 1,-1, 1], [-1, 1,-1], [ 1,-1,-1], [-1, 1, 1] ]), dtype=1)
 

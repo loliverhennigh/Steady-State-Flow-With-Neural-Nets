@@ -16,17 +16,20 @@ FLAGS = tf.app.flags.FLAGS
 
 TRAIN_DIR = make_checkpoint_path(FLAGS.base_dir_flow, FLAGS, network="flow")
 
+shape = FLAGS.shape.split('x')
+shape = map(int, shape)
+
 def train():
   """Train ring_net for a number of steps."""
   with tf.Graph().as_default():
     # global step counter
     global_step = tf.get_variable('global_step', [], initializer=tf.constant_initializer(0), trainable=False)
     # make inputs
-    boundary, sflow = flow_net.inputs_flow(FLAGS.batch_size) 
+    boundary = flow_net.inputs_flow(FLAGS.batch_size, shape) 
     # create and unrap network
     sflow_p = flow_net.inference_flow(boundary, FLAGS.keep_prob) 
     # calc error
-    error = flow_net.loss_flow(sflow_p, sflow) 
+    error = flow_net.loss_flow(sflow_p, boundary, 200)
     # train hopefuly 
     train_op = flow_net.train(error, FLAGS.learning_rate, global_step)
     # List of all Variables
@@ -74,18 +77,20 @@ def train():
     for step in xrange(run_steps):
       current_step = sess.run(global_step)
       t = time.time()
-      _ , loss_value = sess.run([train_op, error],feed_dict={})
+      print("making input")
+      fd_boundary = flow_net.feed_dict_flows(FLAGS.batch_size, shape)
+      print("training model")
+      _ , loss_value = sess.run([train_op, error],feed_dict={boundary:fd_boundary})
       elapsed = time.time() - t
 
       assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
 
-      if current_step%100 == 0:
+      if current_step%1 == 0:
         print("loss value at " + str(loss_value))
         print("time per batch is " + str(elapsed))
 
-      if current_step%2000 == 0:
-        time.sleep(60)
-        summary_str = sess.run(summary_op, feed_dict={})
+      if current_step%20 == 0:
+        summary_str = sess.run(summary_op, feed_dict={boundary:fd_boundary})
         summary_writer.add_summary(summary_str, current_step) 
         checkpoint_path = os.path.join(TRAIN_DIR, 'model.ckpt')
         saver.save(sess, checkpoint_path, global_step=global_step)  
