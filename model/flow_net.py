@@ -28,7 +28,7 @@ tf.app.flags.DEFINE_string('base_dir_boundary', '../checkpoints_boundary',
                             """dir to store trained net boundary """)
 tf.app.flags.DEFINE_integer('batch_size', 8,
                             """ training batch size """)
-tf.app.flags.DEFINE_integer('max_steps',  50000,
+tf.app.flags.DEFINE_integer('max_steps',  100000,
                             """ max number of steps to train """)
 tf.app.flags.DEFINE_float('keep_prob', 1.0,
                             """ keep probability for dropout """)
@@ -141,7 +141,7 @@ def loss_flow(sflow_p, boundary, seq_length, density=1.0, tau=1.0):
   #tf.summary.scalar('mse_last_loss', loss_mse_last)
  
   # sum up losses 
-  loss = (0.0010*loss_p_div + 0.003*loss_t_div + 0.01*loss_mse_predicted)/FLAGS.batch_size
+  loss = (0.00002*loss_p_div + 0.003*loss_t_div + 0.01*loss_mse_predicted)/FLAGS.batch_size
   #loss = (0.01*loss_p_div + 0.01*loss_t_div + loss_mse_last + 0.01*loss_mse_predicted)/FLAGS.batch_size
   #loss = (loss_mse_last)/FLAGS.batch_size
   tf.summary.scalar('total_loss', loss)
