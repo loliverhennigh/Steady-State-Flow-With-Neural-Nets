@@ -11,7 +11,7 @@ Summary of available functions:
 
 import tensorflow as tf
 import numpy as np
-import flow_architecture
+import network_architecture
 import input.flow_input as flow_input
 import utils.boundary_utils as boundary_utils
 import lattice as lat
@@ -38,16 +38,23 @@ tf.app.flags.DEFINE_string('shape', '128x256',
                             """ shape of flow """)
 
 # model params flow
-tf.app.flags.DEFINE_string('model', 'res',
+tf.app.flags.DEFINE_string('flow_model', 'residual_u_network',
                            """ model name to train """)
+tf.app.flags.DEFINE_integer('filter_size', 16,
+                           """ filter size of first res block (preceding layers have double the filter size) """)
+tf.app.flags.DEFINE_integer('nr_downsamples', 4,
+                           """ number of downsamples in u network """)
 tf.app.flags.DEFINE_integer('nr_res_blocks', 2,
-                           """ nr res blocks """)
+                           """ number of res blocks after each downsample """)
 tf.app.flags.DEFINE_bool('gated_res', True,
                            """ gated resnet or not """)
 tf.app.flags.DEFINE_string('nonlinearity', 'concat_elu',
                            """ nonlinearity used such as concat_elu, elu, concat_relu, relu """)
 
+
 # model params boundary
+tf.app.flags.DEFINE_string('bounds_model', 'fc_conv',
+                           """ model name to train boundary network on """)
 tf.app.flags.DEFINE_integer('nr_boundary_params', 39,
                             """ number of boundary paramiters """)
 
@@ -102,13 +109,13 @@ def inference_flow(boundary, keep_prob):
     keep_prob: dropout layer
   """
   with tf.variable_scope("flow_network") as scope:
-    if FLAGS.model == "res": 
-      sflow_p = flow_architecture.conv_res(boundary, nr_res_blocks=FLAGS.nr_res_blocks, keep_prob=keep_prob, nonlinearity_name=FLAGS.nonlinearity, gated=FLAGS.gated_res)
+    if FLAGS.model == "residual_u_network": 
+      sflow_p = network_architecture.residual_u_network(boundary, start_filter_size=FLAGS.filter_size, nr_downsamples=FLAGS.nr_downsamples, nr_residual_per_downsample=FLAGS.nr_residual_blocks, nonlinearity=FLAGS.nonlinearity)
   return sflow_p
 
 def inference_bounds(length_input):
   with tf.variable_scope("boundary_network") as scope:
-    boundary = flow_architecture.fc_conv(length_input)
+    boundary = network_architecture.fc_conv(length_input)
   tf.summary.image('boundarys_g', boundary)
   return boundary
 

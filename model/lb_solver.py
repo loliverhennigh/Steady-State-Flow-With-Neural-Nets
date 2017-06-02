@@ -11,10 +11,6 @@ def _make_kernel(a):
 
 def _simple_conv(x, k):
   """A simplified 2D convolution operation"""
-  #if k.get_shape()[0] == 3:
-  #  x = tf.pad(
-  #      x, [[0, 0], [1, 1], [1, 1],
-  #      [0, 0]], "REFLECT")
   y = tf.nn.conv2d(x, k, [1, 1, 1, 1], padding='VALID')
   return y
 
@@ -48,6 +44,22 @@ def _boundary_kernel_D2Q9():
   boundary_kernel = np.expand_dims(boundary_kernel, axis=0)
   boundary_kernel = tf.constant(boundary_kernel, dtype=tf.float32)
   return boundary_kernel
+
+def _boundary_edge_kernel_D2Q9():
+  boundary_edge_kernel = np.zeros((3,3,9,1))
+  # how to transfer states  
+  boundary_edge_kernel[1,0,0,0] = 1.0
+  boundary_edge_kernel[2,0,1,0] = 1.0
+  boundary_edge_kernel[2,1,2,0] = 1.0
+  boundary_edge_kernel[2,2,3,0] = 1.0
+  boundary_edge_kernel[1,2,4,0] = 1.0
+  boundary_edge_kernel[0,2,5,0] = 1.0
+  boundary_edge_kernel[0,1,6,0] = 1.0
+  boundary_edge_kernel[0,0,7,0] = 1.0
+  # center
+  boundary_edge_kernel[1,1,8,0] = 1.0
+  boundary_edge_kernel = _make_kernel(boundary_edge_kernel)
+  return boundary_edge_kernel
 
 def _u_kernel_D2Q9():
   ux_kernel = np.array([ 1.0,  1.0,  0.0, -1.0, -1.0, -1.0,  0.0,  1.0,  0.0])
@@ -191,6 +203,21 @@ def loss_divergence(f):
   div = divergence.spatial_divergence_2d(u)
   return tf.reduce_sum(div)
 
+def f_to_force(f, boundary):
+  u_kernel = _u_kernel_D2Q9()
+  boundary_edge_kernel = _boundary_edge_kernel_D2Q9()
+  edge = simple_trans_conv_2d(boundary,boundary_edge_kernel) 
+  edge = edge[:,1:-1,1:-1,:]
+  boundary = boundary[:,1:-1,1:-1,:]
+  f = f[:,1:-1,1:-1,:]
+  edge = edge * (-boundary + 1.0)
+  edge = edge * f
+  edge_shape = list(map(int, edge.get_shape()))
+  edge = tf.reshape(edge, edge_shape + [1])
+  force = _simple_conv(f, u_kernel)
+  force = tf.reduce_sum(force, axis=[0,1,2])
+  return force
+
 def lbm_step(f, boundary, u_in, density=1.0, tau=1.7):
   # creates step to run the lattice boltzmann solver
   transfer_kernel = _transfer_kernel_D2Q9()
@@ -257,6 +284,3 @@ def lbm_seq(f, boundary, u_in, seq_length, init_density=1.0, tau=1.7):
     f_store.append(f)
 
   return f_store
-
-
-
