@@ -29,9 +29,9 @@ tf.app.flags.DEFINE_integer('batch_size', 8,
                             """ training batch size """)
 tf.app.flags.DEFINE_integer('max_steps',  200000,
                             """ max number of steps to train """)
-tf.app.flags.DEFINE_float('keep_prob', 0.98,
+tf.app.flags.DEFINE_float('keep_prob', 1.0,
                             """ keep probability for dropout """)
-tf.app.flags.DEFINE_float('learning_rate', 1e-3,
+tf.app.flags.DEFINE_float('learning_rate', 1e-4,
                             """ r dropout """)
 tf.app.flags.DEFINE_string('shape', '128x256',
                             """ shape of flow """)
@@ -41,9 +41,9 @@ tf.app.flags.DEFINE_string('flow_model', 'residual_u_network',
                            """ model name to train """)
 tf.app.flags.DEFINE_integer('filter_size', 16,
                            """ filter size of first res block (preceding layers have double the filter size) """)
-tf.app.flags.DEFINE_integer('nr_downsamples', 3,
+tf.app.flags.DEFINE_integer('nr_downsamples', 4,
                            """ number of downsamples in u network """)
-tf.app.flags.DEFINE_integer('nr_residual_blocks', 1,
+tf.app.flags.DEFINE_integer('nr_residual_blocks', 2,
                            """ number of res blocks after each downsample """)
 tf.app.flags.DEFINE_bool('gated_res', True,
                            """ gated resnet or not """)
@@ -83,8 +83,8 @@ def inputs_flow(batch_size, shape):
   Return:
     x: input vector, may be filled 
   """
-  boundary = tf.placeholder(tf.float32, [batch_size] + shape + [1])
-  tf.summary.image('boundarys', boundary)
+  boundary = tf.placeholder(tf.float32, [batch_size] + shape + [2])
+  tf.summary.image('boundarys', boundary[:,:,:,0:1])
   return boundary
 
 def inputs_boundary(input_dims, batch_size, shape):
@@ -106,11 +106,17 @@ def inputs_boundary_learn(batch_size=1):
 
 def feed_dict_flows(batch_size, shape):
   boundarys = []
+  us = []
   for i in xrange(batch_size):
     boundarys.append(boundary_utils.make_rand_boundary(shape))
+    us.append(lb.make_u_train(shape))
   boundarys = np.expand_dims(boundarys, axis=0)
   boundarys = np.concatenate(boundarys)
   boundarys = np.expand_dims(boundarys, axis=3)
+  us = np.expand_dims(us, axis=0)
+  us = np.concatenate(us)
+  us = np.expand_dims(us, axis=3)
+  boundarys = np.concatenate([boundarys,us], axis=3)
   return boundarys
 
 def feed_dict_boundary(input_dims, batch_size, shape):
@@ -149,11 +155,10 @@ def loss_flow(sflow_p, boundary, global_step):
   u_in = lb.make_u_input(shape)
 
   # solve on flow solver and add up losses
-  sflow_t_list = lb.lbm_seq(sflow_p, boundary, u_in, FLAGS.lb_seq_length, init_density=FLAGS.density, tau=FLAGS.tau)
+  sflow_t_list = lb.lbm_seq(sflow_p, boundary[:,:,:,0:1], u_in, FLAGS.lb_seq_length, init_density=FLAGS.density, tau=FLAGS.tau)
 
   # divergence of the predicted flow
-  #loss_p_div = lb.loss_divergence(sflow_p, boundary)
-  loss_p_div = 0.0
+  loss_p_div = lb.loss_divergence(sflow_p, boundary)
   tf.summary.scalar('p_div_loss', loss_p_div)
 
   # mse between predicted flow and last state of flow solver
@@ -162,7 +167,7 @@ def loss_flow(sflow_p, boundary, global_step):
   tf.summary.scalar('mse_predicted_loss', loss_mse_predicted)
 
   # calc new divergence constant from global step
-  div_constant = FLAGS.div_constant/(tf.pow(2.0,tf.minimum(tf.round(global_step/5000), 6)+2))
+  div_constant = FLAGS.div_constant/(tf.pow(2.0,tf.minimum(tf.round(global_step/5000), 6)+4))
   tf.summary.scalar('div_constant', div_constant)
 
   # sum up losses 

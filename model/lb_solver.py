@@ -206,6 +206,18 @@ def make_u_input(shape, value=0.1):
   u = tf.constant(u)
   return u
 
+def make_u_train(shape, value=0.1):
+  u = np.zeros((shape[0],shape[1]))
+  l = shape[0] - 2
+  for i in xrange(shape[0]-2):
+    yp = i + 0.5
+    vx = value*4.0/(l*l)*(l*yp - yp*yp)
+    u[i+1,0] = vx
+  u = u.astype(np.float32)
+  u[0,0] = 0.0
+  u[-1,0] = 0.0
+  return u
+
 def loss_divergence(f, boundary):
   u = f_to_u_full(f)
   div = divergence.spatial_divergence_2d(u)
