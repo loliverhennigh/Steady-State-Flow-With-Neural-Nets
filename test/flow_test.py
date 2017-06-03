@@ -47,8 +47,8 @@ def evaluate():
   filenames.sort(key=alphanum_key)
   filename_len = len(filenames)
   shape = [128, 256]
-  shape = [64, 128]
-  shape = [32, 64]
+  #shape = [64, 128]
+  #shape = [32, 64]
 
   with tf.Graph().as_default():
     # Make image placeholder
@@ -57,7 +57,7 @@ def evaluate():
     # Build a Graph that computes the logits predictions from the
     # inference model.
     sflow_p = flow_net.inference_flow(boundary_op,1.0)
-    seq_length = 400
+    seq_length = 50
     #sflow_p = lb.zeros_f(shape)
     u_in = lb.make_u_input(shape)
     sflow_t_list = lb.lbm_seq(sflow_p, boundary_op, u_in, seq_length, init_density=1.0, tau=1.0)

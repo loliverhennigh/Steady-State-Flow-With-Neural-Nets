@@ -27,13 +27,13 @@ tf.app.flags.DEFINE_string('base_dir_boundary', '../checkpoints_boundary',
                             """dir to store trained net boundary """)
 tf.app.flags.DEFINE_integer('batch_size', 8,
                             """ training batch size """)
-tf.app.flags.DEFINE_integer('max_steps',  100000,
+tf.app.flags.DEFINE_integer('max_steps',  200000,
                             """ max number of steps to train """)
 tf.app.flags.DEFINE_float('keep_prob', 0.98,
                             """ keep probability for dropout """)
-tf.app.flags.DEFINE_float('learning_rate', 1e-4,
+tf.app.flags.DEFINE_float('learning_rate', 1e-3,
                             """ r dropout """)
-tf.app.flags.DEFINE_string('shape', '32x64',
+tf.app.flags.DEFINE_string('shape', '128x256',
                             """ shape of flow """)
 
 # model params flow
@@ -152,7 +152,8 @@ def loss_flow(sflow_p, boundary, global_step):
   sflow_t_list = lb.lbm_seq(sflow_p, boundary, u_in, FLAGS.lb_seq_length, init_density=FLAGS.density, tau=FLAGS.tau)
 
   # divergence of the predicted flow
-  loss_p_div = lb.loss_divergence(sflow_p, boundary)
+  #loss_p_div = lb.loss_divergence(sflow_p, boundary)
+  loss_p_div = 0.0
   tf.summary.scalar('p_div_loss', loss_p_div)
 
   # mse between predicted flow and last state of flow solver
@@ -161,7 +162,7 @@ def loss_flow(sflow_p, boundary, global_step):
   tf.summary.scalar('mse_predicted_loss', loss_mse_predicted)
 
   # calc new divergence constant from global step
-  div_constant = FLAGS.div_constant/(tf.pow(2.0,tf.round(global_step/1000)))
+  div_constant = FLAGS.div_constant/(tf.pow(2.0,tf.minimum(tf.round(global_step/5000), 6)+2))
   tf.summary.scalar('div_constant', div_constant)
 
   # sum up losses 
