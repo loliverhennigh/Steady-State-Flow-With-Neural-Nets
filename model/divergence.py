@@ -46,7 +46,7 @@ def spatial_divergence_2d(field):
   field_div = field_dx + field_dy
 
   # kill boundarys (this is not correct! I should use boundarys but for right now I will not)
-  field_div = tf.abs(field_div[:,1:-2,1:-2,:])
+  field_div = tf.abs(field_div[:,1:-1,1:-1,:])
 
   return field_div
 

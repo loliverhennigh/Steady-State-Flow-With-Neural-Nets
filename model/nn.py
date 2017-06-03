@@ -47,76 +47,57 @@ def _activation_summary(x):
   tf.summary.histogram(tensor_name + '/activations', x)
   tf.summary.scalar(tensor_name + '/sparsity', tf.nn.zero_fraction(x))
 
-def _variable_on_cpu(name, shape, initializer):
-  """Helper to create a Variable stored on CPU memory.
-
+def _variable(name, shape, initializer):
+  """Helper to create a Variable.
   Args:
     name: name of the variable
     shape: list of ints
     initializer: initializer for Variable
-
   Returns:
     Variable Tensor
   """
-  with tf.device('/cpu:0'):
-    var = tf.get_variable(name, shape, initializer=initializer)
+  # getting rid of stddev for xavier ## testing this for faster convergence
+  var = tf.get_variable(name, shape, initializer=initializer)
   return var
 
+def mobius_pad(inputs):
+  inputs_mobius = tf.concat(axis=1, values=[inputs[:,-1:], inputs, inputs[:,0:1]]) 
+  inputs_mobius = tf.concat(axis=2, values=[inputs_mobius[:,:,-1:], inputs_mobius, inputs_mobius[:,:,0:1]])
+  return inputs_mobius
 
-def _variable_with_weight_decay(name, shape, stddev, wd):
-  """Helper to create an initialized Variable with weight decay.
-
-  Note that the Variable is initialized with a truncated normal distribution.
-  A weight decay is added only if one is specified.
-
-  Args:
-    name: name of the variable
-    shape: list of ints
-    stddev: standard deviation of a truncated Gaussian
-    wd: add L2Loss weight decay multiplied by this float. If None, weight
-        decay is not added for this Variable.
-
-  Returns:
-    Variable Tensor
-  """
-  var = _variable_on_cpu(name, shape,
-                         tf.truncated_normal_initializer(stddev=stddev))
-  if wd:
-    weight_decay = tf.multiply(tf.nn.l2_loss(var), wd, name='weight_loss')
-    weight_decay.set_shape([])
-    tf.add_to_collection('losses', weight_decay)
-  return var
-
-def conv_layer(inputs, kernel_size, stride, num_features, idx, nonlinearity=False):
+def conv_layer(inputs, kernel_size, stride, num_features, idx, nonlinearity=None):
   with tf.variable_scope('{0}_conv'.format(idx)) as scope:
     input_channels = inputs.get_shape()[3]
 
-    weights = _variable_with_weight_decay('weights', shape=[kernel_size,kernel_size,input_channels,num_features],stddev=0.01, wd=FLAGS.weight_decay)
-    biases = _variable_on_cpu('biases',[num_features],tf.constant_initializer(0.01))
+    weights = _variable('weights', shape=[kernel_size,kernel_size,input_channels,num_features],initializer=tf.contrib.layers.xavier_initializer_conv2d())
+    biases = _variable('biases',[num_features],initializer=tf.contrib.layers.xavier_initializer_conv2d())
 
-    conv = tf.nn.conv2d(inputs, weights, strides=[1, stride, stride, 1], padding='SAME')
+    inputs_mobius = mobius_pad(inputs)
+    conv = tf.nn.conv2d(inputs_mobius, weights, strides=[1, stride, stride, 1], padding='VALID')
     conv = tf.nn.bias_add(conv, biases)
     if nonlinearity is not None:
       conv = nonlinearity(conv)
-    return conv_rect
+    return conv
 
-def transpose_conv_layer(inputs, kernel_size, stride, num_features, idx, linear = False):
+def transpose_conv_layer(inputs, kernel_size, stride, num_features, idx, nonlinearity=None):
   with tf.variable_scope('{0}_trans_conv'.format(idx)) as scope:
     input_channels = inputs.get_shape()[3]
     
-    weights = _variable_with_weight_decay('weights', shape=[kernel_size,kernel_size,num_features,input_channels], stddev=0.01, wd=FLAGS.weight_decay)
-    biases = _variable_on_cpu('biases',[num_features],tf.constant_initializer(0.01))
+    weights = _variable('weights', shape=[kernel_size,kernel_size,num_features,input_channels],initializer=tf.contrib.layers.xavier_initializer_conv2d())
+    biases = _variable('biases',[num_features],initializer=tf.contrib.layers.xavier_initializer_conv2d())
     batch_size = tf.shape(inputs)[0]
+    inputs = mobius_pad(inputs)
     output_shape = tf.stack([tf.shape(inputs)[0], tf.shape(inputs)[1]*stride, tf.shape(inputs)[2]*stride, num_features]) 
     conv = tf.nn.conv2d_transpose(inputs, weights, output_shape, strides=[1,stride,stride,1], padding='SAME')
-    conv_biased = tf.nn.bias_add(conv, biases)
-    if linear:
-      return conv_biased
-    conv_rect = tf.nn.elu(conv_biased,name='{0}_transpose_conv'.format(idx))
-    return conv_rect
-     
+    conv = conv[:,2:-2,2:-2]
+    conv = tf.nn.bias_add(conv, biases)
+    if nonlinearity is not None:
+      conv = nonlinearity(conv)
+    shape = int_shape(inputs)
+    conv = tf.reshape(conv, [shape[0], shape[1]*stride-4, shape[2]*stride-4, int(conv.get_shape()[-1])])
+    return conv
 
-def fc_layer(inputs, hiddens, idx, flat = False, linear = False):
+def fc_layer(inputs, hiddens, idx, nonlinearity=None, flat = False):
   with tf.variable_scope('{0}_fc'.format(idx)) as scope:
     input_shape = inputs.get_shape().as_list()
     if flat:
@@ -126,13 +107,19 @@ def fc_layer(inputs, hiddens, idx, flat = False, linear = False):
       dim = input_shape[1]
       inputs_processed = inputs
     
-    weights = _variable_with_weight_decay('weights', shape=[dim,hiddens],stddev=FLAGS.weight_init, wd=FLAGS.weight_decay)
-    biases = _variable_on_cpu('biases', [hiddens], tf.constant_initializer(FLAGS.weight_init))
-    if linear:
-      return tf.add(tf.matmul(inputs_processed,weights),biases,name=str(idx)+'_fc')
-  
-    ip = tf.add(tf.matmul(inputs_processed,weights),biases)
-    return tf.nn.elu(ip,name=str(idx)+'_fc')
+    weights = _variable('weights', shape=[dim,hiddens],initializer=tf.contrib.layers.xavier_initializer())
+    biases = _variable('biases', [hiddens], initializer=tf.contrib.layers.xavier_initializer())
+    output = tf.add(tf.matmul(inputs_processed,weights),biases,name=str(idx)+'_fc')
+    if nonlinearity is not None:
+      output = nonlinearity(output)
+    return output
+
+def nin(x, num_units, idx):
+    """ a network in network layer (1x1 CONV) """
+    s = int_shape(x)
+    x = tf.reshape(x, [np.prod(s[:-1]),s[-1]])
+    x = fc_layer(x, num_units, idx)
+    return tf.reshape(x, s[:-1]+[num_units])
 
 def res_block(x, a=None, filter_size=16, nonlinearity=concat_elu, keep_p=1.0, stride=1, gated=False, name="resnet", begin_nonlinearity=True):
       

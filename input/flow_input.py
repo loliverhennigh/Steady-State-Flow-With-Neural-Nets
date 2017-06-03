@@ -7,10 +7,6 @@ from glob import glob as glb
 
 FLAGS = tf.app.flags.FLAGS
 
-# Constants describing the training process.
-tf.app.flags.DEFINE_integer('min_queue_examples', 1000,
-                           """ min examples to queue up""")
-
 def read_data(filename_queue, shape):
   reader = tf.TFRecordReader()
   key, serialized_example = reader.read(filename_queue)
@@ -36,7 +32,7 @@ def _generate_image_label_batch(boundary, sflow, batch_size, shuffle=True):
     [boundary, sflow],
     batch_size=batch_size,
     num_threads=num_preprocess_threads,
-    capacity=FLAGS.min_queue_examples + 3 * batch_size,
+    capacity=100 + 3 * batch_size,
     min_after_dequeue=FLAGS.min_queue_examples)
   return boundarys, sflows
 

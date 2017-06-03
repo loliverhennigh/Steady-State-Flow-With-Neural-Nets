@@ -20,7 +20,7 @@ sys.path.append('../')
 
 import model.flow_net as flow_net 
 import input.flow_input as flow_input
-from model.lattice import *
+import model.lb_solver as lb
 from utils.flow_reader import load_flow, load_boundary, load_state
 from utils.experiment_manager import make_checkpoint_path
 from utils.plot_helper import grey_to_short_rainbow
@@ -51,12 +51,6 @@ def tryint(s):
 def alphanum_key(s):
   return [ tryint(c) for c in re.split('([0-9]+)', s) ]
 
-def make_params_op(batch_size=1):
-  params_op_set = tf.placeholder(tf.float32, [batch_size, FLAGS.nr_boundary_params])
-  params_op = tf.Variable(np.zeros((batch_size, FLAGS.nr_boundary_params)).astype(dtype=np.float32), name="params")
-  params_op_init = tf.group(params_op.assign(params_op_set))
-  return params_op, params_op_init, params_op_set
-
 def evaluate():
   """Run Eval once.
 
@@ -74,8 +68,8 @@ def evaluate():
 
   with tf.Graph().as_default():
     # Make image placeholder
-    params_op, params_op_init, params_op_set = make_params_op(batch_size)
-    boundary = flow_net.inference_bounds(tf.sigmoid(params_op))
+    params_op, params_op_init, params_op_set = flow_net.inputs_boundary_learn(batch_size)
+    boundary = flow_net.inference_boundary(tf.sigmoid(params_op))
 
     # Build a Graph that computes the logits predictions from the
     # inference model.
@@ -83,13 +77,11 @@ def evaluate():
     sflow_p = add_lattice(sflow_p)
 
     # quantities to optimize
-    velocity = lattice_to_vel(sflow_p)
-    velocity_norm = vel_to_norm(velocity)
-    force_t = lattice_to_force(sflow_p, tf.round(boundary+.4))
-    force = lattice_to_force(sflow_p, boundary)
+    velocity = lb.f_to_u_full(sflow_p)
+    velocity_norm = lb.u_to_norm(u)
+    force = lb.f_to_force(sflow_p, boundary)
     drag_x = tf.reduce_sum(force[:,:,:,0])
     drag_y = tf.reduce_sum(force[:,:,:,1])
-    drag_y_t = tf.reduce_sum(force_t[:,:,:,1])
     boundary_area = tf.reduce_sum(boundary)
 
     # loss
@@ -103,7 +95,7 @@ def evaluate():
     # train_op
     variables_to_train = tf.all_variables()
     variables_to_train = [variable for i, variable in enumerate(variables_to_train) if "params" in variable.name[:variable.name.index(':')]]
-    train_step = flow_net.train(loss, 0.4, variables=variables_to_train)
+    train_step = flow_net.train(loss, FLAGS.boundary_params_lr, train_type="boundary_params", variables=variables_to_train)
 
     # init graph
     init = tf.global_variables_initializer()
@@ -115,36 +107,34 @@ def evaluate():
     saver_boundary = tf.train.Saver(variables_to_restore_boundary)
     saver_flow = tf.train.Saver(variables_to_restore_flow)
 
+    # start ses and init
     sess = tf.Session()
     sess.run(init)
-
     ckpt_boundary = tf.train.get_checkpoint_state(BOUNDARY_DIR)
     ckpt_flow = tf.train.get_checkpoint_state(FLOW_DIR)
-
     saver_boundary.restore(sess, ckpt_boundary.model_checkpoint_path)
     saver_flow.restore(sess, ckpt_flow.model_checkpoint_path)
-    global_step = 1
     
     graph_def = tf.get_default_graph().as_graph_def(add_shapes=True)
 
     params_np = np.random.rand(batch_size,FLAGS.nr_boundary_params)
  
     sess.run(params_op_init, feed_dict={params_op_set: params_np})
-    run_time = 1000
+    run_time = FLAGS.boundary_learn_steps
+
+    # make store vectors for values
     plot_error = np.zeros((run_time))
     plot_drag_y = np.zeros((run_time))
-    plot_drag_y_t = np.zeros((run_time))
     plot_drag_x = np.zeros((run_time))
 
     # make store dir
     os.system("mkdir ./figs/boundary_learn_image_store")
     for i in tqdm(xrange(run_time)):
-      l, _, d_y, d_x, d_y_t = sess.run([loss, train_step, drag_y, drag_x, drag_y_t], feed_dict={})
+      l, _, d_y, d_x = sess.run([loss, train_step, drag_y, drag_x], feed_dict={})
       if i > 0:
         plot_error[i] = l
         plot_drag_x[i] = d_x
         plot_drag_y[i] = d_y
-        plot_drag_y_t[i] = d_y_t
       if (i+1) % 5 == 0:
         # make video with opencv
         velocity_norm_g, boundary_g = sess.run([velocity_norm, boundary],feed_dict={})

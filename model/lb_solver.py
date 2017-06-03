@@ -95,8 +95,8 @@ def _set_velocity_boundary(f, u, density, pos="y_lower"):
   return f_out
 
 def _pad_f(f):
-  f_mobius = tf.concat(axis=1, values=[f[:,-2:-1], f, f[:,0:1]]) 
-  f_mobius = tf.concat(axis=2, values=[f_mobius[:,:,-2:-1], f_mobius, f_mobius[:,:,0:1]])
+  f_mobius = tf.concat(axis=1, values=[f[:,-1:], f, f[:,0:1]]) 
+  f_mobius = tf.concat(axis=2, values=[f_mobius[:,:,-1:], f_mobius, f_mobius[:,:,0:1]])
   return f_mobius
   
 def _propagate(f, propagate_kernel):
@@ -159,6 +159,9 @@ def f_to_u_full(f):
   u = tf.div(_simple_conv(f, u_kernel), density)
   return u
 
+def u_to_norm(u):
+  return tf.sqrt(tf.square(u[:,:,:,0:1]) + tf.square(u[:,:,:,0:1]))
+
 def zeros_f(shape, density=1.0, solver_type="D2Q9"):
   if solver_type == "D2Q9":
     f = np.zeros([1] + shape + [9], dtype=np.float32)
@@ -185,22 +188,28 @@ def sub_weights_f(f, density=1.0):
   f = f - weights
   return f 
 
+def mul_weights_f(f, density=1.0):
+  weights = _weights_D2Q9()
+  f = f * weights
+  return f 
+
 def make_u_input(shape, value=0.1):
   u = np.zeros((1,shape[0],1,1))
   l = shape[0] - 2
-  for i in xrange(shape[0]):
-    yp = i - 1.5
+  for i in xrange(shape[0]-2):
+    yp = i + 0.5
     vx = value*4.0/(l*l)*(l*yp - yp*yp)
-    u[0,i,0,0] = vx
+    u[0,i+1,0,0] = vx
   u = u.astype(np.float32)
-  u[0,0:2,0,0] = 0.0
-  u[0,-3:-1,0,0] = 0.0
+  u[0,0,0,0] = 0.0
+  u[0,-1,0,0] = 0.0
   u = tf.constant(u)
   return u
 
-def loss_divergence(f):
+def loss_divergence(f, boundary):
   u = f_to_u_full(f)
   div = divergence.spatial_divergence_2d(u)
+  #div = div * (1.0 - boundary)
   return tf.reduce_sum(div)
 
 def f_to_force(f, boundary):

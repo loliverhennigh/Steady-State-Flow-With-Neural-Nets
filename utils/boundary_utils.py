@@ -4,7 +4,7 @@ import cv2
 import matplotlib.pyplot as plt
 
 def draw_triangle(boundary, vertex_1, vertex_2, vertex_3):
-  #triangle = np.array([[vertex_1[0],vertex_1[1]],[vertex_2[0],vertex_2[1]],[vertex_3[0],vertex_3[1]]], np.int32)
+  # just using cv2 imp
   triangle = np.array([[vertex_1[1],vertex_1[0]],[vertex_2[1],vertex_2[0]],[vertex_3[1],vertex_3[0]]], np.int32)
   triangle = triangle.reshape((-1,1,2))
   cv2.fillConvexPoly(boundary,triangle,1)
@@ -39,11 +39,6 @@ def draw_ovel(boundary, vertex, cord_1, cord_2, angle, nr_angles=20):
 
   return boundary
 
-def sort_vertices(vertex_1, vertex_2, vertex_3):
-  data = [vertex_1, vertex_2, vertex_3]
-  data.sort(key=lambda tup: tup[1])
-  return data[0], data[1], data[2]
-
 def slice_length(length_input, index, degree):
   length_out = np.zeros(degree)
   for i in xrange(degree):
@@ -76,7 +71,7 @@ def rand_vertex(range_x, range_y):
 
 def make_boundary_circle(length_input, shape, degree=9, rate_curvy=-.01):
   boundary = np.zeros(shape)
-  max_length = np.min(shape)/2.0
+  max_length = np.min(shape)/4.0
   pos = np.zeros((2))
   pos[0] = int(shape[0]/2.0)
   pos[1] = int(shape[1]/2.0)
@@ -109,7 +104,9 @@ def make_boundary_circle(length_input, shape, degree=9, rate_curvy=-.01):
   return boundary
 
 #def make_rand_boundary(shape, num_objects_range=[2,12], size_range=[10,30], max_boundary=2500):
-def make_rand_boundary(shape, num_objects_range=[0,2], size_range=[10,30], max_boundary=2500):
+def make_rand_boundary(shape, num_objects_range=[0,6], size_range=[.05,.15], max_boundary=2500):
+  shape_max = np.min(shape)
+  size_range = [int(size_range[0]*shape_max), int(size_range[1]*shape_max)]
   boundary = np.zeros(shape)
   num_objects = np.random.randint(num_objects_range[0], num_objects_range[1])
   for i in xrange(num_objects):
@@ -120,7 +117,7 @@ def make_rand_boundary(shape, num_objects_range=[0,2], size_range=[10,30], max_b
       size_y = np.random.randint(size_range[0], size_range[1])
       angle = np.random.randint(0, 90)
       max_length = np.max([size_x, size_y])
-      vertex = rand_vertex([max_length, shape[0]-max_length], [max_length+40, shape[1]-max_length-40])
+      vertex = rand_vertex([max_length, shape[0]-max_length], [max_length+int(.1*shape[1]), shape[1]-max_length-int(.1*shape[1])])
       boundary = draw_ovel(boundary, vertex, size_x, size_y, angle, nr_angles=20)
     if object_type == 1:
       size_x_1 = np.random.randint(-size_range[1], size_range[1])
@@ -129,12 +126,12 @@ def make_rand_boundary(shape, num_objects_range=[0,2], size_range=[10,30], max_b
       size_y_2 = np.random.randint(-size_range[1], size_range[1])
       max_length_x = np.max([np.abs(size_x_1), np.abs(size_x_2)])
       max_length_y = np.max([np.abs(size_y_1), np.abs(size_y_2)])
-      vertex = rand_vertex([max_length_x, shape[0]-max_length_x], [max_length_y+40, shape[1]-max_length_y-40])
+      vertex = rand_vertex([max_length_x, shape[0]-max_length_x], [max_length_y+int(.1*shape[1]), shape[1]-max_length_y-int(.1*shape[1])])
       boundary = draw_triangle(boundary, vertex, [vertex[0]+size_x_2, vertex[1]+size_y_2], [vertex[0]+size_x_1, vertex[1]+size_y_1])
     if np.sum(boundary) > max_boundary:
       break
-  boundary[0:2,:] = 1
-  boundary[-3:-1,:] = 1
+  boundary[0:1,:] = 1
+  boundary[-1:,:] = 1
   return boundary
 
 """

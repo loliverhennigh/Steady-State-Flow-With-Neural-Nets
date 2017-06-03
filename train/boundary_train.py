@@ -14,6 +14,9 @@ FLAGS = tf.app.flags.FLAGS
 
 TRAIN_DIR = make_checkpoint_path(FLAGS.base_dir_boundary, FLAGS, network="boundary")
 
+shape = FLAGS.shape.split('x')
+shape = map(int, shape)
+
 def train():
   """Train ring_net for a number of steps."""
   with tf.Graph().as_default():
@@ -21,13 +24,13 @@ def train():
     global_step = tf.get_variable('global_step', [], initializer=tf.constant_initializer(0), trainable=False)
     # make inputs
     input_dims = FLAGS.nr_boundary_params
-    length_inputs, boundary_t = flow_net.inputs_bounds(input_dims, FLAGS.batch_size) 
+    length_inputs, boundary_t = flow_net.inputs_boundary(input_dims, FLAGS.batch_size, shape) 
     # create and unrap network
-    boundary_g = flow_net.inference_bounds(length_inputs) 
+    boundary_g = flow_net.inference_boundary(length_inputs, shape) 
     # calc error
-    error = flow_net.loss_bounds(boundary_t, boundary_g) 
+    error = flow_net.loss_boundary(boundary_t, boundary_g) 
     # train hopefuly 
-    train_op = flow_net.train(error, FLAGS.learning_rate, global_step)
+    train_op = flow_net.train(error, FLAGS.learning_rate, train_type="boundary_network", global_step=global_step)
     # List of all Variables
     variables = tf.global_variables()
 
@@ -70,7 +73,7 @@ def train():
     for step in xrange(run_steps):
       current_step = sess.run(global_step) + 20000.0
       t = time.time()
-      fd_length_inputs, fd_boundary = flow_net.feed_dict_bounds(input_dims, FLAGS.batch_size)
+      fd_length_inputs, fd_boundary = flow_net.feed_dict_boundary(input_dims, FLAGS.batch_size, shape)
       _ , loss_value = sess.run([train_op, error],feed_dict={length_inputs: fd_length_inputs, boundary_t: fd_boundary})
       elapsed = time.time() - t
 
