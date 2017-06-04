@@ -51,7 +51,7 @@ tf.app.flags.DEFINE_string('nonlinearity', 'concat_elu',
                            """ nonlinearity used such as concat_elu, elu, concat_relu, relu """)
 tf.app.flags.DEFINE_float('div_constant', 1.0,
                             """ apply to the divergence constant """)
-tf.app.flags.DEFINE_integer('lb_seq_length', 251,
+tf.app.flags.DEFINE_integer('lb_seq_length', 50,
                             """ number of steps taken by LB solver during training """)
 tf.app.flags.DEFINE_float('tau', 1.0,
                             """ relaxation constant for fluid solver """)
@@ -156,8 +156,8 @@ def loss_flow(sflow_p, boundary, global_step):
   u_in = lb.make_u_input(shape)
 
   # solve on flow solver and add up losses
-  sflow_p_new = lb.zeros_f(shape)
-  sflow_t_list = lb.lbm_seq(sflow_p_new, boundary[:,:,:,0:1], u_in, FLAGS.lb_seq_length, init_density=FLAGS.density, tau=FLAGS.tau)
+  #sflow_p_new = lb.zeros_f(shape)
+  sflow_t_list = lb.lbm_seq(sflow_p, boundary[:,:,:,0:1], u_in, FLAGS.lb_seq_length, init_density=FLAGS.density, tau=FLAGS.tau)
 
   # divergence of the predicted flow
   #loss_p_div = lb.loss_divergence(sflow_p, boundary)
@@ -166,7 +166,11 @@ def loss_flow(sflow_p, boundary, global_step):
 
   # mse between predicted flow and last state of flow solver
   #loss_mse_predicted = tf.nn.l2_loss((sflow_p - tf.stop_gradient(sflow_t_list[-1])) * (1.0-boundary))
-  loss_mse_predicted = tf.nn.l2_loss(sflow_p - tf.stop_gradient(sflow_t_list[-1]))
+  #loss_mse_predicted = tf.nn.l2_loss(sflow_p - tf.stop_gradient(sflow_t_list[-1]))
+  loss_mse_predicted = tf.nn.l2_loss(sflow_p - sflow_t_list[1])
+  for i in xrange(FLAGS.lb_seq_length-2):
+    loss_mse_predicted += tf.nn.l2_loss(sflow_t_list[i] - sflow_t_list[i+2])
+
   #loss_mse_predicted = tf.nn.l2_loss(sflow_p - sflow_t_list[-1])
   tf.summary.scalar('mse_predicted_loss', loss_mse_predicted)
 

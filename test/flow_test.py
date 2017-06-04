@@ -47,7 +47,7 @@ def evaluate():
   filenames.sort(key=alphanum_key)
   filename_len = len(filenames)
   shape = [128, 256]
-  shape = [64, 128]
+  #shape = [64, 128]
   shape = [32, 64]
 
   with tf.Graph().as_default():
@@ -57,11 +57,12 @@ def evaluate():
     # Build a Graph that computes the logits predictions from the
     # inference model.
     sflow_p = flow_net.inference_flow(boundary_op,1.0)
-    seq_length = 25
+    seq_length = 51
     #sflow_p = lb.zeros_f(shape)
     u_in = lb.make_u_input(shape)
     sflow_t_list = lb.lbm_seq(sflow_p, boundary_op[:,:,:,0:1], u_in, seq_length, init_density=1.0, tau=1.0)
     sflow_t = sflow_t_list[-1]
+    #sflow_p = sflow_t_list[-3]
     u_p = lb.f_to_u_full(sflow_p) 
     norm_u_p = lb.u_to_norm(u_p) 
     div_p = divergence.spatial_divergence_2d(u_p)
@@ -71,8 +72,9 @@ def evaluate():
 
     # record diff
     diff = []
-    for i in xrange(seq_length-1):
-      diff.append(tf.nn.l2_loss((sflow_t_list[i+1] - sflow_t_list[i])))
+    diff.append(tf.nn.l2_loss((sflow_p - sflow_t_list[1])))
+    for i in xrange(seq_length-2):
+      diff.append(tf.nn.l2_loss((sflow_t_list[i+2] - sflow_t_list[i])))
     diff = tf.stack(diff)
 
     # Restore for eval
