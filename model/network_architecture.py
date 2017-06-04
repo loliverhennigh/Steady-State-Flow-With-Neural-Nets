@@ -14,6 +14,7 @@ def residual_u_network(inputs, density=1.0, start_filter_size=16, nr_downsamples
   a = []
   # encoding piece
   x_i = inputs
+  print(x_i.get_shape())
   for i in xrange(nr_downsamples):
     x_i = nn.res_block(x_i, filter_size=filter_size, keep_p=keep_prob, nonlinearity=nonlinearity, stride=2, name="res_encode_" + str(i) + "_block_0", begin_nonlinearity=False)
     for j in xrange(nr_residual_per_downsample - 1):
@@ -26,11 +27,13 @@ def residual_u_network(inputs, density=1.0, start_filter_size=16, nr_downsamples
   # decoding piece
   for i in xrange(nr_downsamples - 1):
     filter_size = filter_size / 2
-    x_i = nn.transpose_conv_layer(x_i, 4, 2, filter_size, "up_conv_" + str(i), nonlinearity=nonlinearity)
+    #x_i = nn.upsampleing_resize(x_i, filter_size, "up_conv_" + str(i))
+    x_i = nn.transpose_conv_layer(x_i, 4, 2, filter_size, "up_conv_" + str(i))
     x_i = nn.res_block(x_i, a=a.pop(), filter_size=filter_size, keep_p=keep_prob, nonlinearity=nonlinearity, name="res_decode_" + str(i) + "_block_0", begin_nonlinearity=True)
     for j in xrange(nr_residual_per_downsample-1):
       x_i = nn.res_block(x_i, filter_size=filter_size, keep_p=keep_prob, nonlinearity=nonlinearity, name="res_decode_" + str(i) + "_block_" + str(j+1), begin_nonlinearity=True)
-  x_i = nn.transpose_conv_layer(x_i, 4, 2, 9, "up_conv_" + str(nr_downsamples-1))
+  #x_i = nn.transpose_conv_layer(x_i, 2, 2, 9, "up_conv_" + str(nr_downsamples-1))
+  x_i = nn.upsampleing_resize(x_i, 9, "up_conv_" + str(nr_downsamples-1))
   # create into flow dist
   x_i = tf.nn.tanh(x_i)
   x_i = lb.mul_weights_f(x_i)

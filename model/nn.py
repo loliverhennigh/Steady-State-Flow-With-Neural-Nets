@@ -61,8 +61,10 @@ def _variable(name, shape, initializer):
   return var
 
 def mobius_pad(inputs):
-  inputs_mobius = tf.concat(axis=1, values=[inputs[:,-1:], inputs, inputs[:,0:1]]) 
-  inputs_mobius = tf.concat(axis=2, values=[inputs_mobius[:,:,-1:], inputs_mobius, inputs_mobius[:,:,0:1]])
+  inputs_mobius = tf.concat(axis=1, values=[tf.zeros_like(inputs[:,-1:]), inputs, tf.zeros_like(inputs[:,0:1])]) 
+  #inputs_mobius = tf.concat(axis=1, values=[inputs[:,-1:], inputs, inputs[:,0:1]]) 
+  inputs_mobius = tf.concat(axis=2, values=[tf.zeros_like(inputs_mobius[:,:,-1:]), inputs_mobius, tf.zeros_like(inputs_mobius[:,:,0:1])])
+  #inputs_mobius = tf.concat(axis=2, values=[inputs_mobius[:,:,-1:], inputs_mobius, inputs_mobius[:,:,0:1]])
   return inputs_mobius
 
 def conv_layer(inputs, kernel_size, stride, num_features, idx, nonlinearity=None):
@@ -120,6 +122,12 @@ def nin(x, num_units, idx):
     x = tf.reshape(x, [np.prod(s[:-1]),s[-1]])
     x = fc_layer(x, num_units, idx)
     return tf.reshape(x, s[:-1]+[num_units])
+
+def upsampleing_resize(x, filter_size, name="upsample"):
+  x_shape = int_shape(x)
+  x = tf.image.resize_nearest_neighbor(x, [2*x_shape[1], 2*x_shape[2]])
+  x = conv_layer(x, 3, 1, filter_size, name)
+  return x
 
 def res_block(x, a=None, filter_size=16, nonlinearity=concat_elu, keep_p=1.0, stride=1, gated=False, name="resnet", begin_nonlinearity=True):
       

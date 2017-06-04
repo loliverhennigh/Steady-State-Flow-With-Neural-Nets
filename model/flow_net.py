@@ -29,11 +29,11 @@ tf.app.flags.DEFINE_integer('batch_size', 8,
                             """ training batch size """)
 tf.app.flags.DEFINE_integer('max_steps',  200000,
                             """ max number of steps to train """)
-tf.app.flags.DEFINE_float('keep_prob', 1.0,
+tf.app.flags.DEFINE_float('keep_prob', 0.95,
                             """ keep probability for dropout """)
 tf.app.flags.DEFINE_float('learning_rate', 1e-4,
                             """ r dropout """)
-tf.app.flags.DEFINE_string('shape', '128x256',
+tf.app.flags.DEFINE_string('shape', '32x64',
                             """ shape of flow """)
 
 # model params flow
@@ -41,7 +41,7 @@ tf.app.flags.DEFINE_string('flow_model', 'residual_u_network',
                            """ model name to train """)
 tf.app.flags.DEFINE_integer('filter_size', 16,
                            """ filter size of first res block (preceding layers have double the filter size) """)
-tf.app.flags.DEFINE_integer('nr_downsamples', 4,
+tf.app.flags.DEFINE_integer('nr_downsamples', 3,
                            """ number of downsamples in u network """)
 tf.app.flags.DEFINE_integer('nr_residual_blocks', 2,
                            """ number of res blocks after each downsample """)
@@ -51,7 +51,7 @@ tf.app.flags.DEFINE_string('nonlinearity', 'concat_elu',
                            """ nonlinearity used such as concat_elu, elu, concat_relu, relu """)
 tf.app.flags.DEFINE_float('div_constant', 1.0,
                             """ apply to the divergence constant """)
-tf.app.flags.DEFINE_integer('lb_seq_length', 50,
+tf.app.flags.DEFINE_integer('lb_seq_length', 251,
                             """ number of steps taken by LB solver during training """)
 tf.app.flags.DEFINE_float('tau', 1.0,
                             """ relaxation constant for fluid solver """)
@@ -85,6 +85,7 @@ def inputs_flow(batch_size, shape):
   """
   boundary = tf.placeholder(tf.float32, [batch_size] + shape + [2])
   tf.summary.image('boundarys', boundary[:,:,:,0:1])
+  tf.summary.image('u', boundary[:,:,:,1:2])
   return boundary
 
 def inputs_boundary(input_dims, batch_size, shape):
@@ -155,19 +156,22 @@ def loss_flow(sflow_p, boundary, global_step):
   u_in = lb.make_u_input(shape)
 
   # solve on flow solver and add up losses
-  sflow_t_list = lb.lbm_seq(sflow_p, boundary[:,:,:,0:1], u_in, FLAGS.lb_seq_length, init_density=FLAGS.density, tau=FLAGS.tau)
+  sflow_p_new = lb.zeros_f(shape)
+  sflow_t_list = lb.lbm_seq(sflow_p_new, boundary[:,:,:,0:1], u_in, FLAGS.lb_seq_length, init_density=FLAGS.density, tau=FLAGS.tau)
 
   # divergence of the predicted flow
-  loss_p_div = lb.loss_divergence(sflow_p, boundary)
+  #loss_p_div = lb.loss_divergence(sflow_p, boundary)
+  loss_p_div = 0.0
   tf.summary.scalar('p_div_loss', loss_p_div)
 
   # mse between predicted flow and last state of flow solver
   #loss_mse_predicted = tf.nn.l2_loss((sflow_p - tf.stop_gradient(sflow_t_list[-1])) * (1.0-boundary))
   loss_mse_predicted = tf.nn.l2_loss(sflow_p - tf.stop_gradient(sflow_t_list[-1]))
+  #loss_mse_predicted = tf.nn.l2_loss(sflow_p - sflow_t_list[-1])
   tf.summary.scalar('mse_predicted_loss', loss_mse_predicted)
 
   # calc new divergence constant from global step
-  div_constant = FLAGS.div_constant/(tf.pow(2.0,tf.minimum(tf.round(global_step/5000), 6)+4))
+  div_constant = FLAGS.div_constant/(tf.pow(2.0,tf.minimum(tf.round(global_step/2000), 6)+8))
   tf.summary.scalar('div_constant', div_constant)
 
   # sum up losses 

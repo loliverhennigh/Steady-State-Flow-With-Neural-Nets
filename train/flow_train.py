@@ -37,9 +37,9 @@ def train():
 
     # Build a saver
     saver = tf.train.Saver(tf.global_variables())   
-    #for i, variable in enumerate(variables):
-    #  print '----------------------------------------------'
-    #  print variable.name[:variable.name.index(':')]
+    for i, variable in enumerate(variables):
+      print '----------------------------------------------'
+      print variable.name[:variable.name.index(':')]
 
     # Summary op
     summary_op = tf.summary.merge_all()
