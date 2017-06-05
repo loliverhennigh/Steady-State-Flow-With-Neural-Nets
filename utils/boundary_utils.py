@@ -103,6 +103,13 @@ def make_boundary_circle(length_input, shape, degree=9, rate_curvy=-.01):
 
   return boundary
 
+def make_rand_boundary_circle(shape):
+  rand_length = np.random.rand(31)
+  boundary = make_boundary_circle(rand_length, shape)
+  boundary[0:1,:] = 1
+  boundary[-1:,:] = 1
+  return boundary
+
 #def make_rand_boundary(shape, num_objects_range=[2,12], size_range=[10,30], max_boundary=2500):
 def make_rand_boundary(shape, num_objects_range=[0,4], size_range=[.05,.15], max_boundary=2500):
   shape_max = np.min(shape)

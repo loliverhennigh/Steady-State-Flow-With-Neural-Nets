@@ -61,10 +61,10 @@ def _variable(name, shape, initializer):
   return var
 
 def mobius_pad(inputs):
-  inputs_mobius = tf.concat(axis=1, values=[tf.zeros_like(inputs[:,-1:]), inputs, tf.zeros_like(inputs[:,0:1])]) 
-  #inputs_mobius = tf.concat(axis=1, values=[inputs[:,-1:], inputs, inputs[:,0:1]]) 
-  inputs_mobius = tf.concat(axis=2, values=[tf.zeros_like(inputs_mobius[:,:,-1:]), inputs_mobius, tf.zeros_like(inputs_mobius[:,:,0:1])])
-  #inputs_mobius = tf.concat(axis=2, values=[inputs_mobius[:,:,-1:], inputs_mobius, inputs_mobius[:,:,0:1]])
+  #inputs_mobius = tf.concat(axis=1, values=[tf.zeros_like(inputs[:,-1:]), inputs, tf.zeros_like(inputs[:,0:1])]) 
+  inputs_mobius = tf.concat(axis=1, values=[inputs[:,-1:], inputs, inputs[:,0:1]]) 
+  #inputs_mobius = tf.concat(axis=2, values=[tf.zeros_like(inputs_mobius[:,:,-1:]), inputs_mobius, tf.zeros_like(inputs_mobius[:,:,0:1])])
+  inputs_mobius = tf.concat(axis=2, values=[inputs_mobius[:,:,-1:], inputs_mobius, inputs_mobius[:,:,0:1]])
   return inputs_mobius
 
 def conv_layer(inputs, kernel_size, stride, num_features, idx, nonlinearity=None):

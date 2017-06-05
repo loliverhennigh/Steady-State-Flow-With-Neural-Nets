@@ -32,13 +32,98 @@ def residual_u_network(inputs, density=1.0, start_filter_size=16, nr_downsamples
     x_i = nn.res_block(x_i, a=a.pop(), filter_size=filter_size, keep_p=keep_prob, nonlinearity=nonlinearity, name="res_decode_" + str(i) + "_block_0", begin_nonlinearity=True)
     for j in xrange(nr_residual_per_downsample-1):
       x_i = nn.res_block(x_i, filter_size=filter_size, keep_p=keep_prob, nonlinearity=nonlinearity, name="res_decode_" + str(i) + "_block_" + str(j+1), begin_nonlinearity=True)
-  #x_i = nn.transpose_conv_layer(x_i, 2, 2, 9, "up_conv_" + str(nr_downsamples-1))
-  x_i = nn.upsampleing_resize(x_i, 9, "up_conv_" + str(nr_downsamples-1))
+  x_i = nn.transpose_conv_layer(x_i, 2, 2, 9, "up_conv_" + str(nr_downsamples-1))
+  #x_i = nn.upsampleing_resize(x_i, 9, "up_conv_" + str(nr_downsamples-1))
   # create into flow dist
   x_i = tf.nn.tanh(x_i)
-  x_i = lb.mul_weights_f(x_i)
-  x_i = lb.add_weights_f(x_i, density=density)
+  #x_i = .9 * lb.mul_weights_f(x_i)
+  #x_i = lb.add_weights_f(x_i, density=density)
   return x_i
+
+def conv_res(inputs, nr_res_blocks=1, keep_prob=1.0, nonlinearity_name='concat_elu', gated=True):
+  """Builds conv part of net.
+  Args:
+    inputs: input images
+    keep_prob: dropout layer
+  """
+  nonlinearity = nn.set_nonlinearity(nonlinearity_name)
+  filter_size = 8
+  # store for as
+  a = []
+  # res_1
+  x = inputs
+  for i in xrange(nr_res_blocks):
+    x = nn.res_block(x, filter_size=filter_size, nonlinearity=nonlinearity, keep_p=keep_prob, gated=gated, name="resnet_1_" + str(i))
+  # res_2
+  a.append(x)
+  filter_size = 2 * filter_size
+  x = nn.res_block(x, filter_size=filter_size, nonlinearity=nonlinearity, keep_p=keep_prob, stride=2, gated=gated, name="resnet_2_downsample")
+  for i in xrange(nr_res_blocks):
+    x = nn.res_block(x, filter_size=filter_size, nonlinearity=nonlinearity, keep_p=keep_prob, gated=gated, name="resnet_2_" + str(i))
+  # res_3
+  a.append(x)
+  filter_size = 2 * filter_size
+  x = nn.res_block(x, filter_size=filter_size, nonlinearity=nonlinearity, keep_p=keep_prob, stride=2, gated=gated, name="resnet_3_downsample")
+  for i in xrange(nr_res_blocks):
+    x = nn.res_block(x, filter_size=filter_size, nonlinearity=nonlinearity, keep_p=keep_prob, gated=gated, name="resnet_3_" + str(i))
+  # res_4
+  a.append(x)
+  filter_size = 2 * filter_size
+  x = nn.res_block(x, filter_size=filter_size, nonlinearity=nonlinearity, keep_p=keep_prob, stride=2, gated=gated, name="resnet_4_downsample")
+  for i in xrange(nr_res_blocks):
+    x = nn.res_block(x, filter_size=filter_size, nonlinearity=nonlinearity, keep_p=keep_prob, gated=gated, name="resnet_4_" + str(i))
+  # res_4
+  a.append(x)
+  filter_size = 2 * filter_size
+  x = nn.res_block(x, filter_size=filter_size, nonlinearity=nonlinearity, keep_p=keep_prob, stride=2, gated=gated, name="resnet_5_downsample")
+  for i in xrange(nr_res_blocks):
+    x = nn.res_block(x, filter_size=filter_size, nonlinearity=nonlinearity, keep_p=keep_prob, gated=gated, name="resnet_5_" + str(i))
+  # res_up_1
+  filter_size = filter_size /2
+  x = nn.transpose_conv_layer(x, 3, 2, filter_size, "up_conv_1")
+  #x = PS(x,2,512)
+  for i in xrange(nr_res_blocks):
+    if i == 0:
+      x = nn.res_block(x, a=a[-1], filter_size=filter_size, nonlinearity=nonlinearity, keep_p=keep_prob, gated=gated, name="resnet_up_1_" + str(i))
+    else:
+      x = nn.res_block(x, filter_size=filter_size, nonlinearity=nonlinearity, keep_p=keep_prob, gated=gated, name="resnet_up_1_" + str(i))
+  # res_up_1
+  filter_size = filter_size /2
+  x = nn.transpose_conv_layer(x, 3, 2, filter_size, "up_conv_2")
+  #x = PS(x,2,512)
+  for i in xrange(nr_res_blocks):
+    if i == 0:
+      x = nn.res_block(x, a=a[-2], filter_size=filter_size, nonlinearity=nonlinearity, keep_p=keep_prob, gated=gated, name="resnet_up_2_" + str(i))
+    else:
+      x = nn.res_block(x, filter_size=filter_size, nonlinearity=nonlinearity, keep_p=keep_prob, gated=gated, name="resnet_up_2_" + str(i))
+
+  filter_size = filter_size /2
+  x = nn.transpose_conv_layer(x, 3, 2, filter_size, "up_conv_3")
+  #x = PS(x,2,512)
+  for i in xrange(nr_res_blocks):
+    if i == 0:
+      x = nn.res_block(x, a=a[-3], filter_size=filter_size, nonlinearity=nonlinearity, keep_p=keep_prob, gated=gated, name="resnet_up_3_" + str(i))
+    else:
+      x = nn.res_block(x, filter_size=filter_size, nonlinearity=nonlinearity, keep_p=keep_prob, gated=gated, name="resnet_up_3_" + str(i))
+ 
+  filter_size = filter_size /2
+  x = nn.transpose_conv_layer(x, 3, 2, filter_size, "up_conv_4")
+  #x = PS(x,2,512)
+  for i in xrange(nr_res_blocks):
+    if i == 0:
+      x = nn.res_block(x, a=a[-4], filter_size=filter_size, nonlinearity=nonlinearity, keep_p=keep_prob, gated=gated, name="resnet_up_4_" + str(i))
+    else:
+      x = nn.res_block(x, filter_size=filter_size, nonlinearity=nonlinearity, keep_p=keep_prob, gated=gated, name="resnet_up_4_" + str(i))
+  
+  x = nn.conv_layer(x, 3, 1, 9, "last_conv")
+  x = tf.nn.tanh(x) 
+  x = .9 * lb.mul_weights_f(x)
+  x = lb.add_weights_f(x)
+
+  tf.summary.image('sflow_p_x', x[:,:,:,1:2])
+  tf.summary.image('sflow_p_v', x[:,:,:,0:1])
+
+  return x
 
 def fc_conv(inputs, shape, nonlinearity_name="elu"):
   nonlinearity = nn.set_nonlinearity(nonlinearity_name)

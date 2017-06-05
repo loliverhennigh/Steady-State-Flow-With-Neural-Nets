@@ -46,9 +46,9 @@ def evaluate():
   filenames = glb('../data/computed_car_flow/*')
   filenames.sort(key=alphanum_key)
   filename_len = len(filenames)
-  shape = [128, 256]
-  #shape = [64, 128]
-  shape = [32, 64]
+  #shape = [128, 256]
+  shape = [64, 128]
+  #shape = [32, 64]
 
   with tf.Graph().as_default():
     # Make image placeholder
@@ -57,7 +57,7 @@ def evaluate():
     # Build a Graph that computes the logits predictions from the
     # inference model.
     sflow_p = flow_net.inference_flow(boundary_op,1.0)
-    seq_length = 51
+    seq_length = 151
     #sflow_p = lb.zeros_f(shape)
     u_in = lb.make_u_input(shape)
     sflow_t_list = lb.lbm_seq(sflow_p, boundary_op[:,:,:,0:1], u_in, seq_length, init_density=1.0, tau=1.0)

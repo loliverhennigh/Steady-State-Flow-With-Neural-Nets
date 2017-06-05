@@ -27,17 +27,17 @@ tf.app.flags.DEFINE_string('base_dir_boundary', '../checkpoints_boundary',
                             """dir to store trained net boundary """)
 tf.app.flags.DEFINE_integer('batch_size', 8,
                             """ training batch size """)
-tf.app.flags.DEFINE_integer('max_steps',  200000,
+tf.app.flags.DEFINE_integer('max_steps',  300000,
                             """ max number of steps to train """)
 tf.app.flags.DEFINE_float('keep_prob', 0.95,
                             """ keep probability for dropout """)
 tf.app.flags.DEFINE_float('learning_rate', 1e-4,
                             """ r dropout """)
-tf.app.flags.DEFINE_string('shape', '32x64',
+tf.app.flags.DEFINE_string('shape', '64x128',
                             """ shape of flow """)
 
 # model params flow
-tf.app.flags.DEFINE_string('flow_model', 'residual_u_network',
+tf.app.flags.DEFINE_string('flow_model', 'residual_network',
                            """ model name to train """)
 tf.app.flags.DEFINE_integer('filter_size', 16,
                            """ filter size of first res block (preceding layers have double the filter size) """)
@@ -109,7 +109,8 @@ def feed_dict_flows(batch_size, shape):
   boundarys = []
   us = []
   for i in xrange(batch_size):
-    boundarys.append(boundary_utils.make_rand_boundary(shape))
+    #boundarys.append(boundary_utils.make_rand_boundary(shape))
+    boundarys.append(boundary_utils.make_rand_boundary_circle(shape))
     us.append(lb.make_u_train(shape))
   boundarys = np.expand_dims(boundarys, axis=0)
   boundarys = np.concatenate(boundarys)
@@ -139,6 +140,8 @@ def inference_flow(boundary, keep_prob):
   with tf.variable_scope("flow_network") as scope:
     if FLAGS.flow_model == "residual_u_network": 
       sflow_p = network_architecture.residual_u_network(boundary, density=FLAGS.density, start_filter_size=FLAGS.filter_size, nr_downsamples=FLAGS.nr_downsamples, nr_residual_per_downsample=FLAGS.nr_residual_blocks, nonlinearity=FLAGS.nonlinearity)
+    elif FLAGS.flow_model == "residual_network": 
+      sflow_p = network_architecture.conv_res(boundary)
   return sflow_p
 
 def inference_boundary(length_input, shape):
@@ -166,10 +169,11 @@ def loss_flow(sflow_p, boundary, global_step):
 
   # mse between predicted flow and last state of flow solver
   #loss_mse_predicted = tf.nn.l2_loss((sflow_p - tf.stop_gradient(sflow_t_list[-1])) * (1.0-boundary))
-  #loss_mse_predicted = tf.nn.l2_loss(sflow_p - tf.stop_gradient(sflow_t_list[-1]))
-  loss_mse_predicted = tf.nn.l2_loss(sflow_p - sflow_t_list[1])
-  for i in xrange(FLAGS.lb_seq_length-2):
-    loss_mse_predicted += tf.nn.l2_loss(sflow_t_list[i] - sflow_t_list[i+2])
+  loss_mse_predicted = tf.nn.l2_loss(sflow_p - tf.stop_gradient(sflow_t_list[-1]))
+  #loss_mse_predicted = tf.nn.l2_loss(sflow_p - sflow_t_list[1])
+  #loss_mse_predicted = tf.nn.l2_loss(sflow_p - boundary[:,:,:,0:1])
+  #for i in xrange(FLAGS.lb_seq_length-2):
+  #  loss_mse_predicted += tf.nn.l2_loss(sflow_t_list[i] - sflow_t_list[i+2])
 
   #loss_mse_predicted = tf.nn.l2_loss(sflow_p - sflow_t_list[-1])
   tf.summary.scalar('mse_predicted_loss', loss_mse_predicted)
@@ -185,6 +189,7 @@ def loss_flow(sflow_p, boundary, global_step):
   # image summary
   tf.summary.image('sflow_p_x', lb.f_to_u_full(sflow_p)[:,:,:,0:1])
   tf.summary.image('sflow_p_y', lb.f_to_u_full(sflow_p)[:,:,:,1:2])
+  #tf.summary.image('sflow_p_x', sflow_p[:,:,:,0:1])
   tf.summary.image('sflow_p_out_x', lb.f_to_u_full(sflow_t_list[-1])[:,:,:,0:1])
   tf.summary.image('sflow_p_out_y', lb.f_to_u_full(sflow_t_list[-1])[:,:,:,1:2])
   return loss
@@ -197,6 +202,7 @@ def loss_boundary(true_boundary, generated_boundary):
 
 def train(total_loss, lr, train_type="flow_network", global_step=None, variables=None):
    if train_type == "flow_network" or train_type == "boundary_network":
+     print("correct train type")
      train_op = tf.train.AdamOptimizer(lr).minimize(total_loss, global_step)
    elif train_type == "boundary_params":
      train_op = tf.train.GradientDescentOptimizer(lr).minimize(total_loss, var_list=variables)
