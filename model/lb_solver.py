@@ -85,14 +85,28 @@ def _create_boundary_cutter(boundary, solver_type="D2Q9"):
 
 def _set_velocity_boundary(f, u, density, pos="y_lower"):
   if pos == "y_lower":
+    # input vel on left side
     f_out = f[:,:,1:]
     f_edge = tf.split(f[:,:,0:1], 9, axis=3)
-    f_edge[0] = f_edge[4] + (2.0/3.0)*density*u
-    f_edge[1] = f_edge[5] + (1.0/6.0)*density*u - 0.5*(f_edge[2]-f_edge[6])
-    f_edge[7] = f_edge[3] + (1.0/6.0)*density*u + 0.5*(f_edge[2]-f_edge[6])
+    rho = (f_edge[8] + f_edge[2] + f_edge[6] + 2.0*(f_edge[4] + f_edge[5] + f_edge[3]))/(1.0 - u)
+    f_edge[0] = f_edge[4] + (2.0/3.0)*rho*u
+    f_edge[1] = f_edge[5] + (1.0/6.0)*rho*u - 0.5*(f_edge[2]-f_edge[6])
+    f_edge[7] = f_edge[3] + (1.0/6.0)*rho*u + 0.5*(f_edge[2]-f_edge[6])
     f_edge = tf.stack(f_edge, axis=3)[:,:,:,:,0]
-    f_out = tf.concat([f_edge,f_out],axis=2)
-  return f_out
+    f = tf.concat([f_edge,f_out],axis=2)
+
+    # remove vel on right side
+    """
+    f_out = f[:,:,:-1]
+    f_edge = tf.split(f[:,:,-1:], 9, axis=3)
+    vx = -1.0 + (f_edge[8] + f_edge[2] + f_edge[6] + 2.0*(f_edge[0] + f_edge[1] + f_edge[7]))
+    f_edge[4] = f_edge[0] - (2.0/3.0)*vx
+    f_edge[5] = f_edge[1] - (1.0/6.0)*vx + 0.5*(f_edge[2]-f_edge[6])
+    f_edge[3] = f_edge[7] - (1.0/6.0)*vx - 0.5*(f_edge[2]-f_edge[6])
+    f_edge = tf.stack(f_edge, axis=3)[:,:,:,:,0]
+    f = tf.concat([f_out,f_edge],axis=2)
+    """
+  return f
 
 def _pad_f(f):
   f_mobius = tf.concat(axis=1, values=[f[:,-1:], f, f[:,0:1]]) 

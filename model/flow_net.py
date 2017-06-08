@@ -168,12 +168,11 @@ def loss_flow(sflow_p, boundary, global_step):
   tf.summary.scalar('p_div_loss', loss_p_div)
 
   # mse between predicted flow and last state of flow solver
-  #loss_mse_predicted = tf.nn.l2_loss((sflow_p - tf.stop_gradient(sflow_t_list[-1])) * (1.0-boundary))
-  loss_mse_predicted = tf.nn.l2_loss(sflow_p - tf.stop_gradient(sflow_t_list[-1]))
-  #loss_mse_predicted = tf.nn.l2_loss(sflow_p - sflow_t_list[1])
-  #loss_mse_predicted = tf.nn.l2_loss(sflow_p - boundary[:,:,:,0:1])
-  #for i in xrange(FLAGS.lb_seq_length-2):
-  #  loss_mse_predicted += tf.nn.l2_loss(sflow_t_list[i] - sflow_t_list[i+2])
+  loss_mse_predicted = tf.nn.l2_loss(sflow_p - sflow_t_list[0])
+  loss_mse_predicted = tf.nn.l2_loss(sflow_p - sflow_t_list[1])
+  for i in xrange(FLAGS.lb_seq_length-2):
+    loss_mse_predicted += tf.nn.l2_loss(sflow_t_list[i] - sflow_t_list[i+1])
+    loss_mse_predicted += tf.nn.l2_loss(sflow_t_list[i] - sflow_t_list[i+2])
 
   #loss_mse_predicted = tf.nn.l2_loss(sflow_p - sflow_t_list[-1])
   tf.summary.scalar('mse_predicted_loss', loss_mse_predicted)
