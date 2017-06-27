@@ -5,7 +5,7 @@
 import tensorflow as tf
 import numpy as np
 
-import BasicConvLSTMCell 
+#import BasicConvLSTMCell 
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -173,6 +173,7 @@ def res_block(x, a=None, filter_size=16, nonlinearity=concat_elu, keep_p=1.0, st
     orig_x = nin(orig_x, out_filter, name + '_nin_pad')
   return orig_x + x
 
+"""
 def res_block_lstm(x, hidden_state_1=None, hidden_state_2=None, keep_p=1.0, name="resnet_lstm"):
 
   orig_x = x
@@ -196,3 +197,4 @@ def res_block_lstm(x, hidden_state_1=None, hidden_state_2=None, keep_p=1.0, name
     x_2, hidden_state_2 = lstm_cell_2(x_1, hidden_state_2, scope=scope)
 
   return orig_x + x_2, hidden_state_1, hidden_state_2
+"""

@@ -13,8 +13,9 @@ import tensorflow as tf
 import numpy as np
 import network_architecture
 import input.flow_input as flow_input
-import utils.boundary_utils as boundary_utils
-import lb_solver as lb
+import boundary_utils as boundary_utils
+import LatFlow.Domain as dom
+import inflow
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -51,15 +52,22 @@ tf.app.flags.DEFINE_string('nonlinearity', 'concat_elu',
                            """ nonlinearity used such as concat_elu, elu, concat_relu, relu """)
 tf.app.flags.DEFINE_float('div_constant', 1.0,
                             """ apply to the divergence constant """)
-tf.app.flags.DEFINE_integer('lb_seq_length', 50,
+tf.app.flags.DEFINE_integer('lb_seq_length', 10,
                             """ number of steps taken by LB solver during training """)
-tf.app.flags.DEFINE_float('tau', 1.0,
-                            """ relaxation constant for fluid solver """)
+tf.app.flags.DEFINE_float('nu', 0.05,
+                            """ viscocity of fluid """)
 tf.app.flags.DEFINE_float('density', 1.0,
                             """ density for fluid solver """)
-
+tf.app.flags.DEFINE_string('inflow_type', "parabolic",
+                            """ type of inflow in simulation """)
+tf.app.flags.DEFINE_float('inflow_value', 0.1,
+                            """ inflow velocity """)
+tf.app.flags.DEFINE_string('lattice_type', "D2Q9",
+                            """ lattice structure for simulation """)
 
 # model params boundary
+tf.app.flags.DEFINE_string('boundary_type', 'shapes',
+                           """ type of boundarys to train on """)
 tf.app.flags.DEFINE_string('boundary_model', 'fc_conv',
                            """ model name to train boundary network on """)
 tf.app.flags.DEFINE_integer('nr_boundary_params', 39,
@@ -104,14 +112,15 @@ def inputs_boundary_learn(batch_size=1):
   params_op_init = tf.group(params_op.assign(params_op_set))
   return params_op, params_op_init, params_op_set
 
-
 def feed_dict_flows(batch_size, shape):
   boundarys = []
   us = []
+  boundary_creator = boundary_utils.get_boundary_creator(FLAGS.boundary_type)
+  inflow_vector = inflow.get_inflow_vector(FLAGS.inflow_type)
   for i in xrange(batch_size):
     #boundarys.append(boundary_utils.make_rand_boundary(shape))
-    boundarys.append(boundary_utils.make_rand_boundary_circle(shape))
-    us.append(lb.make_u_train(shape))
+    boundarys.append(boundary_creator(shape))
+    us.append(inflow_vector(shape, FLAGS.inflow_value))
   boundarys = np.expand_dims(boundarys, axis=0)
   boundarys = np.concatenate(boundarys)
   boundarys = np.expand_dims(boundarys, axis=3)
@@ -124,6 +133,7 @@ def feed_dict_flows(batch_size, shape):
 def feed_dict_boundary(input_dims, batch_size, shape):
   length_input = np.random.rand(batch_size, input_dims)
   boundarys = []
+  boundary_creator = boundary_utils.get_creator(FLAGS.boundary_type)
   for i in xrange(batch_size):
     boundarys.append(boundary_utils.make_boundary_circle(length_input[i], shape))
   boundarys = np.expand_dims(boundarys, axis=0)
@@ -155,42 +165,34 @@ def loss_flow(sflow_p, boundary, global_step):
   shape = boundary.get_shape()
   shape = [int(shape[1]), int(shape[2])]
 
-  # make parabolic input velocity
-  u_in = lb.make_u_input(shape)
+  # make input velocity
+  inflow_computation = inflow.get_inflow(FLAGS.inflow_type)
 
-  # solve on flow solver and add up losses
-  #sflow_p_new = lb.zeros_f(shape)
-  sflow_t_list = lb.lbm_seq(sflow_p, boundary[:,:,:,0:1], u_in, FLAGS.lb_seq_length, init_density=FLAGS.density, tau=FLAGS.tau)
+  # initalize flow solver
+  domain = dom.Domain(FLAGS.lattice_type, FLAGS.nu, shape, boundary[:,:,:,0:1])
 
-  # divergence of the predicted flow
-  #loss_p_div = lb.loss_divergence(sflow_p, boundary)
-  loss_p_div = 0.0
-  tf.summary.scalar('p_div_loss', loss_p_div)
+  # unroll flow solver for a few steps
+  sflow_t_list = domain.Unroll(sflow_p, FLAGS.lb_seq_length, inflow_computation, FLAGS.inflow_value)
 
-  # mse between predicted flow and last state of flow solver
+  # mse between predicted flow and flow solver
   loss_mse_predicted = tf.nn.l2_loss(sflow_p - sflow_t_list[0])
   loss_mse_predicted = tf.nn.l2_loss(sflow_p - sflow_t_list[1])
+  
+  # mse between every two states of flow solver
   for i in xrange(FLAGS.lb_seq_length-2):
     loss_mse_predicted += tf.nn.l2_loss(sflow_t_list[i] - sflow_t_list[i+1])
     loss_mse_predicted += tf.nn.l2_loss(sflow_t_list[i] - sflow_t_list[i+2])
-
-  #loss_mse_predicted = tf.nn.l2_loss(sflow_p - sflow_t_list[-1])
   tf.summary.scalar('mse_predicted_loss', loss_mse_predicted)
 
-  # calc new divergence constant from global step
-  div_constant = FLAGS.div_constant/(tf.pow(2.0,tf.minimum(tf.round(global_step/2000), 6)+8))
-  tf.summary.scalar('div_constant', div_constant)
-
-  # sum up losses 
-  loss = (div_constant*loss_p_div + loss_mse_predicted)/FLAGS.batch_size
+  # normalize loss
+  loss = (loss_mse_predicted)/FLAGS.batch_size
   tf.summary.scalar('total_loss', loss)
 
   # image summary
-  tf.summary.image('sflow_p_x', lb.f_to_u_full(sflow_p)[:,:,:,0:1])
-  tf.summary.image('sflow_p_y', lb.f_to_u_full(sflow_p)[:,:,:,1:2])
-  #tf.summary.image('sflow_p_x', sflow_p[:,:,:,0:1])
-  tf.summary.image('sflow_p_out_x', lb.f_to_u_full(sflow_t_list[-1])[:,:,:,0:1])
-  tf.summary.image('sflow_p_out_y', lb.f_to_u_full(sflow_t_list[-1])[:,:,:,1:2])
+  tf.summary.image('sflow_p_x', domain.Vel[0][:,:,:,0:1])
+  tf.summary.image('sflow_p_y', domain.Vel[0][:,:,:,1:2])
+  #tf.summary.image('sflow_p_out_x', lb.f_to_u_full(sflow_t_list[-1])[:,:,:,0:1])
+  #tf.summary.image('sflow_p_out_y', lb.f_to_u_full(sflow_t_list[-1])[:,:,:,1:2])
   return loss
 
 def loss_boundary(true_boundary, generated_boundary):
@@ -201,7 +203,6 @@ def loss_boundary(true_boundary, generated_boundary):
 
 def train(total_loss, lr, train_type="flow_network", global_step=None, variables=None):
    if train_type == "flow_network" or train_type == "boundary_network":
-     print("correct train type")
      train_op = tf.train.AdamOptimizer(lr).minimize(total_loss, global_step)
    elif train_type == "boundary_params":
      train_op = tf.train.GradientDescentOptimizer(lr).minimize(total_loss, var_list=variables)

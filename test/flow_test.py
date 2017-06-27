@@ -59,7 +59,7 @@ def evaluate():
     sflow_p = flow_net.inference_flow(boundary_op,1.0)
     seq_length = 50
     sflow_p_new = lb.zeros_f(shape)
-    u_in = lb.make_u_input(shape)
+    #u_in = lb.make_u_input(shape)
     sflow_t_list = lb.lbm_seq(sflow_p_new, boundary_op[:,:,:,0:1], u_in, seq_length, init_density=1.0, tau=1.0)
     sflow_t = sflow_t_list[-1]
     #sflow_p = sflow_t_list[-3]

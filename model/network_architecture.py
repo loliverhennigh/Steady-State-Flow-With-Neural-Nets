@@ -1,8 +1,9 @@
 
 import tensorflow as tf
 import numpy as np
-import lb_solver as lb
 import nn
+import LatFlow.D2Q9  as D2Q9
+import LatFlow.D3Q15 as D3Q15
 
 def residual_u_network(inputs, density=1.0, start_filter_size=16, nr_downsamples=4, nr_residual_per_downsample=2, keep_prob=1.0, nonlinearity="concat_elu"):
 
@@ -117,8 +118,9 @@ def conv_res(inputs, nr_res_blocks=1, keep_prob=1.0, nonlinearity_name='concat_e
   
   x = nn.conv_layer(x, 3, 1, 9, "last_conv")
   x = tf.nn.tanh(x) 
-  x = .9 * lb.mul_weights_f(x)
-  x = lb.add_weights_f(x)
+  x = .9 * tf.reshape(D2Q9.WEIGHTS, [1,1,1,9]) * x
+  x = tf.reshape(D2Q9.WEIGHTS, [1,1,1,9]) + x
+  print("is running!!!!!!!!!!")
 
   tf.summary.image('sflow_p_x', x[:,:,:,1:2])
   tf.summary.image('sflow_p_v', x[:,:,:,0:1])

@@ -21,7 +21,8 @@ shape = map(int, shape)
 
 def train():
   """Train ring_net for a number of steps."""
-  with tf.Graph().as_default():
+  #with tf.Graph().as_default():
+  with tf.Session() as sess:
     # global step counter
     global_step = tf.get_variable('global_step', [], initializer=tf.constant_initializer(0), trainable=False)
     # make inputs
@@ -37,9 +38,9 @@ def train():
 
     # Build a saver
     saver = tf.train.Saver(tf.global_variables())   
-    for i, variable in enumerate(variables):
-      print '----------------------------------------------'
-      print variable.name[:variable.name.index(':')]
+    #for i, variable in enumerate(variables):
+    #  print '----------------------------------------------'
+    #  print variable.name[:variable.name.index(':')]
 
     # Summary op
     summary_op = tf.summary.merge_all()
@@ -48,7 +49,7 @@ def train():
     init = tf.global_variables_initializer()
 
     # Start running operations on the Graph.
-    sess = tf.Session()
+    #sess = tf.Session()
 
     # init if this is the very time training
     sess.run(init)
@@ -84,12 +85,12 @@ def train():
       assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
 
       if current_step%10 == 0:
+        summary_str = sess.run(summary_op, feed_dict={boundary:fd_boundary})
+        summary_writer.add_summary(summary_str, current_step) 
         print("loss value at " + str(loss_value))
         print("time per batch is " + str(elapsed))
 
       if current_step%50 == 0:
-        summary_str = sess.run(summary_op, feed_dict={boundary:fd_boundary})
-        summary_writer.add_summary(summary_str, current_step) 
         checkpoint_path = os.path.join(TRAIN_DIR, 'model.ckpt')
         saver.save(sess, checkpoint_path, global_step=global_step)  
         print("saved to " + TRAIN_DIR)
