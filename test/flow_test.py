@@ -18,8 +18,8 @@ sys.path.append('../')
 
 import model.flow_net as flow_net 
 import input.flow_input as flow_input
-import model.lb_solver as lb
-import model.divergence as divergence
+import model.inflow as inflow
+import LatFlow.Domain as dom
 from utils.flow_reader import load_flow, load_boundary, load_state
 from utils.experiment_manager import make_checkpoint_path
 import utils.boundary_utils as boundary_utils
@@ -50,25 +50,20 @@ def evaluate():
   shape = [64, 128]
   #shape = [32, 64]
 
-  with tf.Graph().as_default():
+  with tf.Session() as sess:
     # Make image placeholder
     boundary_op = flow_net.inputs_flow(batch_size=1, shape=shape)
 
     # Build a Graph that computes the logits predictions from the
     # inference model.
     sflow_p = flow_net.inference_flow(boundary_op,1.0)
-    seq_length = 50
-    sflow_p_new = lb.zeros_f(shape)
+    seq_length = 10
+    inflow_computation = inflow.get_inflow(FLAGS.inflow_type)
+    domain = dom.Domain(FLAGS.lattice_type, FLAGS.nu, shape, boundary_op[:,:,:,0:1])
+    sflow_t_list = domain.Unroll(sflow_p, FLAGS.lb_seq_length, inflow_computation, FLAGS.inflow_value)
     #u_in = lb.make_u_input(shape)
-    sflow_t_list = lb.lbm_seq(sflow_p_new, boundary_op[:,:,:,0:1], u_in, seq_length, init_density=1.0, tau=1.0)
     sflow_t = sflow_t_list[-1]
-    #sflow_p = sflow_t_list[-3]
-    u_p = lb.f_to_u_full(sflow_p) 
-    norm_u_p = lb.u_to_norm(u_p) 
-    div_p = divergence.spatial_divergence_2d(u_p)
-    u_t = lb.f_to_u_full(sflow_t)
-    norm_u_t = lb.u_to_norm(u_t)
-    div_t = divergence.spatial_divergence_2d(u_t)
+    u_p = domain.Vel[0]
 
     # record diff
     diff = []
@@ -78,9 +73,11 @@ def evaluate():
     diff = tf.stack(diff)
 
     # Restore for eval
+    init = tf.global_variables_initializer()
+    sess.run(init)
     variables_to_restore = tf.all_variables()
-    saver = tf.train.Saver(variables_to_restore)
-    sess = tf.Session()
+    variables_to_restore_flow = [variable for i, variable in enumerate(variables_to_restore) if "flow_network" in variable.name[:variable.name.index(':')]]
+    saver = tf.train.Saver(variables_to_restore_flow)
     ckpt = tf.train.get_checkpoint_state(FLOW_DIR)
     saver.restore(sess, ckpt.model_checkpoint_path)
     global_step = 1
@@ -96,14 +93,15 @@ def evaluate():
       boundary_np = flow_net.feed_dict_flows(1, shape)
       # calc logits 
       sflow_generated = sess.run(sflow_p,feed_dict={boundary_op: boundary_np})
-      vel_p, vel_t = sess.run([norm_u_p, norm_u_t],feed_dict={boundary_op: boundary_np})
+      vel_p = sess.run(u_p,feed_dict={boundary_op: boundary_np})
       diff_generated = sess.run(diff,feed_dict={boundary_op: boundary_np})
       plt.plot(diff_generated)
       plt.show()
       #vel_t = np.minimum(vel_t, 1.2)
       #vel_t = np.maximum(vel_t, -1.2)
       #sflow_plot = np.concatenate([vel_p, sflow_true, vel_p - sflow_true], axis=1)
-      sflow_plot = np.concatenate([vel_p, vel_t, np.abs(vel_p - vel_t)], axis=1)
+      #sflow_plot = np.concatenate([vel_p, vel_t, np.abs(vel_p - vel_t)], axis=1)
+      sflow_plot = vel_p
       sflow_plot = sflow_plot[0,:,:,0]
 
       # display it

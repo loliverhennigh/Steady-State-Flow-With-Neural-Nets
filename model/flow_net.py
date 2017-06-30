@@ -34,7 +34,7 @@ tf.app.flags.DEFINE_float('keep_prob', 0.95,
                             """ keep probability for dropout """)
 tf.app.flags.DEFINE_float('learning_rate', 1e-4,
                             """ r dropout """)
-tf.app.flags.DEFINE_string('shape', '64x128',
+tf.app.flags.DEFINE_string('shape', '32x64',
                             """ shape of flow """)
 
 # model params flow
@@ -84,7 +84,6 @@ tf.app.flags.DEFINE_float('boundary_learn_steps', 500,
 # test params
 tf.app.flags.DEFINE_string('test_set', "car",
                             """ either car or random """)
-
 
 def inputs_flow(batch_size, shape):
   """makes input vector
@@ -191,8 +190,6 @@ def loss_flow(sflow_p, boundary, global_step):
   # image summary
   tf.summary.image('sflow_p_x', domain.Vel[0][:,:,:,0:1])
   tf.summary.image('sflow_p_y', domain.Vel[0][:,:,:,1:2])
-  #tf.summary.image('sflow_p_out_x', lb.f_to_u_full(sflow_t_list[-1])[:,:,:,0:1])
-  #tf.summary.image('sflow_p_out_y', lb.f_to_u_full(sflow_t_list[-1])[:,:,:,1:2])
   return loss
 
 def loss_boundary(true_boundary, generated_boundary):

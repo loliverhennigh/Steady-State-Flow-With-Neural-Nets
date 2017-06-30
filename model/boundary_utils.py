@@ -50,8 +50,6 @@ def draw_ovel(boundary, vertex, cord_1, cord_2, angle, nr_angles=20):
   draw_triangle(boundary, vertex, x_start, x_2)
   return boundary
 
-
-
 def slice_length(length_input, index, degree):
   length_out = np.zeros(degree)
   for i in xrange(degree):
@@ -114,10 +112,11 @@ def make_rand_boundary_circle(shape):
   return boundary
 
 #def make_rand_boundary(shape, num_objects_range=[2,12], size_range=[10,30], max_boundary=2500):
-def make_rand_boundary(shape, num_objects_range=[0,4], size_range=[.05,.15], max_boundary=2500):
+def make_rand_boundary(shape, num_objects_range=[0,4], size_range=[.05,.15], max_boundary=.25):
   shape_max = np.min(shape)
   size_range = [int(size_range[0]*shape_max), int(size_range[1]*shape_max)]
   boundary = np.zeros(shape)
+  max_boundary = max_boundary * shape[0] * shape[1]
   num_objects = np.random.randint(num_objects_range[0], num_objects_range[1])
   for i in xrange(num_objects):
     object_type = np.random.randint(0,2)
