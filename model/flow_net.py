@@ -28,14 +28,17 @@ tf.app.flags.DEFINE_string('base_dir_boundary', '../checkpoints_boundary',
                             """dir to store trained net boundary """)
 tf.app.flags.DEFINE_integer('batch_size', 8,
                             """ training batch size """)
+tf.app.flags.DEFINE_integer('nr_gpus', 1,
+                           """ number of gpus for training (each gpu with have batch size FLAGS.batch_size""")
 tf.app.flags.DEFINE_integer('max_steps',  300000,
                             """ max number of steps to train """)
 tf.app.flags.DEFINE_float('keep_prob', 0.9522,
                             """ keep probability for dropout """)
-tf.app.flags.DEFINE_float('learning_rate', 1e-4,
+tf.app.flags.DEFINE_float('lr', 1e-4,
                             """ r dropout """)
 tf.app.flags.DEFINE_string('shape', '128x512',
                             """ shape of flow """)
+
 
 # model params flow
 tf.app.flags.DEFINE_string('flow_model', 'residual_network',
@@ -91,9 +94,10 @@ def inputs_flow(batch_size, shape):
     x: input vector, may be filled 
   """
   boundary = tf.placeholder(tf.float32, [batch_size] + shape + [5])
-  tf.summary.image('boundarys', boundary[...,0:1])
-  tf.summary.image('u', boundary[...,1:4])
-  tf.summary.image('u_on', boundary[...,-1:])
+  with tf.device('/cpu:0'):
+    tf.summary.image('boundarys', boundary[...,0:1])
+    tf.summary.image('u', boundary[...,1:4])
+    tf.summary.image('u_on', boundary[...,-1:])
   return boundary
 
 def inputs_boundary(input_dims, batch_size, shape):
@@ -180,15 +184,16 @@ def loss_flow(sflow_p, boundary, global_step):
   #  loss_mse_predicted += tf.nn.l2_loss(sflow_t_list[i] - sflow_t_list[i+2])
   #loss_mse_predicted += tf.nn.l2_loss(sflow_p - sflow_t_list[-1])
   loss_mse_predicted = tf.nn.l2_loss(sflow_p - sflow_t_list[-1])
-  tf.summary.scalar('mse_predicted_loss', loss_mse_predicted)
 
   # normalize loss
   loss = (loss_mse_predicted)/FLAGS.batch_size
-  tf.summary.scalar('total_loss', loss)
+  with tf.device('/cpu:0'):
+    tf.summary.scalar('total_loss', loss)
 
   # image summary
-  tf.summary.image('sflow_p_x', domain.Vel[0][:,:,:,0:1])
-  tf.summary.image('sflow_p_y', domain.Vel[0][:,:,:,1:2])
+  with tf.device('/cpu:0'):
+    tf.summary.image('sflow_p_x', domain.Vel[0][:,:,:,0:1])
+    tf.summary.image('sflow_p_y', domain.Vel[0][:,:,:,1:2])
   return loss
 
 def loss_boundary(true_boundary, generated_boundary):
