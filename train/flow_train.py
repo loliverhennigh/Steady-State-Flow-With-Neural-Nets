@@ -12,6 +12,8 @@ import model.flow_net as flow_net
 from utils.experiment_manager import make_checkpoint_path
 from tqdm import *
 
+import matplotlib.pyplot as plt
+
 FLAGS = tf.app.flags.FLAGS
 
 TRAIN_DIR = make_checkpoint_path(FLAGS.base_dir_flow, FLAGS, network="flow")
@@ -84,13 +86,13 @@ def train():
 
       assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
 
-      if current_step%10 == 0:
+      if current_step%20 == 0:
         summary_str = sess.run(summary_op, feed_dict={boundary:fd_boundary})
         summary_writer.add_summary(summary_str, current_step) 
         print("loss value at " + str(loss_value))
         print("time per batch is " + str(elapsed))
 
-      if current_step%50 == 0:
+      if current_step%100 == 0:
         checkpoint_path = os.path.join(TRAIN_DIR, 'model.ckpt')
         saver.save(sess, checkpoint_path, global_step=global_step)  
         print("saved to " + TRAIN_DIR)

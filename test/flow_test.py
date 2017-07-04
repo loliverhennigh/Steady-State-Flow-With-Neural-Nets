@@ -46,8 +46,9 @@ def evaluate():
   filenames = glb('../data/computed_car_flow/*')
   filenames.sort(key=alphanum_key)
   filename_len = len(filenames)
+  shape = [128, 512]
   #shape = [128, 256]
-  shape = [64, 128]
+  #shape = [64, 128]
   #shape = [32, 64]
 
   with tf.Session() as sess:
@@ -57,19 +58,20 @@ def evaluate():
     # Build a Graph that computes the logits predictions from the
     # inference model.
     sflow_p = flow_net.inference_flow(boundary_op,1.0)
-    seq_length = 10
-    inflow_computation = inflow.get_inflow(FLAGS.inflow_type)
+    seq_length = 150
     domain = dom.Domain(FLAGS.lattice_type, FLAGS.nu, shape, boundary_op[:,:,:,0:1])
-    sflow_t_list = domain.Unroll(sflow_p, FLAGS.lb_seq_length, inflow_computation, FLAGS.inflow_value)
+    sflow_t = domain.Unroll(sflow_p, 1, inflow.apply_flow, (boundary_op[...,1:4], boundary_op[...,-1:]))[-1]
+    u_p = domain.Vel[0]
+    sflow_t_list = domain.Unroll(sflow_t, seq_length-1, inflow.apply_flow, (boundary_op[...,1:4], boundary_op[...,-1:]))
+    u_t = domain.Vel[0]
     #u_in = lb.make_u_input(shape)
     sflow_t = sflow_t_list[-1]
-    u_p = domain.Vel[0]
 
     # record diff
     diff = []
-    diff.append(tf.nn.l2_loss((sflow_p - sflow_t_list[0])))
-    for i in xrange(seq_length-1):
-      diff.append(tf.nn.l2_loss((sflow_t_list[i+1] - sflow_t_list[i])))
+    diff.append(tf.nn.l2_loss((1.0-boundary_op[...,0:1])*(sflow_p - sflow_t_list[0])))
+    for i in xrange(seq_length-2):
+      diff.append(tf.nn.l2_loss((1.0-boundary_op[...,0:1])*(sflow_t_list[i+1] - sflow_t_list[i])))
     diff = tf.stack(diff)
 
     # Restore for eval
@@ -93,15 +95,15 @@ def evaluate():
       boundary_np = flow_net.feed_dict_flows(1, shape)
       # calc logits 
       sflow_generated = sess.run(sflow_p,feed_dict={boundary_op: boundary_np})
-      vel_p = sess.run(u_p,feed_dict={boundary_op: boundary_np})
+      vel_p, vel_t = sess.run([u_p,u_t],feed_dict={boundary_op: boundary_np})
       diff_generated = sess.run(diff,feed_dict={boundary_op: boundary_np})
       plt.plot(diff_generated)
       plt.show()
       #vel_t = np.minimum(vel_t, 1.2)
       #vel_t = np.maximum(vel_t, -1.2)
       #sflow_plot = np.concatenate([vel_p, sflow_true, vel_p - sflow_true], axis=1)
-      #sflow_plot = np.concatenate([vel_p, vel_t, np.abs(vel_p - vel_t)], axis=1)
-      sflow_plot = vel_p
+      sflow_plot = np.concatenate([vel_p, vel_t, np.abs(vel_p - vel_t)], axis=1)
+      #sflow_plot = vel_p
       sflow_plot = sflow_plot[0,:,:,0]
 
       # display it
