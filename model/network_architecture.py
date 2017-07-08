@@ -235,10 +235,9 @@ def conv_res(inputs, nr_res_blocks=1, keep_prob=1.0, nonlinearity_name='concat_e
   x = tf.nn.tanh(x) 
   x = .9 * tf.reshape(D2Q9.WEIGHTS, [1,1,1,9]) * x
   x = tf.reshape(D2Q9.WEIGHTS, [1,1,1,9]) + x
-  print("is running!!!!!!!!!!")
 
-  tf.summary.image('sflow_p_x', x[:,:,:,1:2])
-  tf.summary.image('sflow_p_v', x[:,:,:,0:1])
+  #tf.summary.image('sflow_p_x', x[:,:,:,1:2])
+  #tf.summary.image('sflow_p_v', x[:,:,:,0:1])
 
   return x
 

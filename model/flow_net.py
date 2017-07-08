@@ -28,14 +28,17 @@ tf.app.flags.DEFINE_string('base_dir_boundary', '../checkpoints_boundary',
                             """dir to store trained net boundary """)
 tf.app.flags.DEFINE_integer('batch_size', 8,
                             """ training batch size """)
+tf.app.flags.DEFINE_integer('nr_gpus', 1,
+                           """ number of gpus for training (each gpu with have batch size FLAGS.batch_size""")
 tf.app.flags.DEFINE_integer('max_steps',  300000,
                             """ max number of steps to train """)
-tf.app.flags.DEFINE_float('keep_prob', 0.95,
+tf.app.flags.DEFINE_float('keep_prob', 0.9522,
                             """ keep probability for dropout """)
-tf.app.flags.DEFINE_float('learning_rate', 1e-4,
+tf.app.flags.DEFINE_float('lr', 1e-4,
                             """ r dropout """)
-tf.app.flags.DEFINE_string('shape', '32x64',
+tf.app.flags.DEFINE_string('shape', '128x512',
                             """ shape of flow """)
+
 
 # model params flow
 tf.app.flags.DEFINE_string('flow_model', 'residual_network',
@@ -52,7 +55,7 @@ tf.app.flags.DEFINE_string('nonlinearity', 'concat_elu',
                            """ nonlinearity used such as concat_elu, elu, concat_relu, relu """)
 tf.app.flags.DEFINE_float('div_constant', 1.0,
                             """ apply to the divergence constant """)
-tf.app.flags.DEFINE_integer('lb_seq_length', 10,
+tf.app.flags.DEFINE_integer('lb_seq_length', 30,
                             """ number of steps taken by LB solver during training """)
 tf.app.flags.DEFINE_float('nu', 0.05,
                             """ viscocity of fluid """)
@@ -90,9 +93,11 @@ def inputs_flow(batch_size, shape):
   Return:
     x: input vector, may be filled 
   """
-  boundary = tf.placeholder(tf.float32, [batch_size] + shape + [2])
-  tf.summary.image('boundarys', boundary[:,:,:,0:1])
-  tf.summary.image('u', boundary[:,:,:,1:2])
+  boundary = tf.placeholder(tf.float32, [batch_size] + shape + [5])
+  with tf.device('/cpu:0'):
+    tf.summary.image('boundarys', boundary[...,0:1])
+    tf.summary.image('u', boundary[...,1:4])
+    tf.summary.image('u_on', boundary[...,-1:])
   return boundary
 
 def inputs_boundary(input_dims, batch_size, shape):
@@ -114,19 +119,19 @@ def inputs_boundary_learn(batch_size=1):
 def feed_dict_flows(batch_size, shape):
   boundarys = []
   us = []
+  u_ons = []
   boundary_creator = boundary_utils.get_boundary_creator(FLAGS.boundary_type)
   inflow_vector = inflow.get_inflow_vector(FLAGS.inflow_type)
   for i in xrange(batch_size):
     #boundarys.append(boundary_utils.make_rand_boundary(shape))
     boundarys.append(boundary_creator(shape))
-    us.append(inflow_vector(shape, FLAGS.inflow_value))
-  boundarys = np.expand_dims(boundarys, axis=0)
+    u, u_on = inflow_vector(shape, np.array([FLAGS.inflow_value, 0.0, 0.0]))
+    us.append(u)
+    u_ons.append(u_on)
   boundarys = np.concatenate(boundarys)
-  boundarys = np.expand_dims(boundarys, axis=3)
-  us = np.expand_dims(us, axis=0)
   us = np.concatenate(us)
-  us = np.expand_dims(us, axis=3)
-  boundarys = np.concatenate([boundarys,us], axis=3)
+  u_ons = np.concatenate(u_ons)
+  boundarys = np.concatenate([boundarys,us,u_ons], axis=-1)
   return boundarys
 
 def feed_dict_boundary(input_dims, batch_size, shape):
@@ -135,9 +140,7 @@ def feed_dict_boundary(input_dims, batch_size, shape):
   boundary_creator = boundary_utils.get_creator(FLAGS.boundary_type)
   for i in xrange(batch_size):
     boundarys.append(boundary_utils.make_boundary_circle(length_input[i], shape))
-  boundarys = np.expand_dims(boundarys, axis=0)
   boundarys = np.concatenate(boundarys)
-  boundarys = np.expand_dims(boundarys, axis=3)
   return length_input, boundarys
 
 def inference_flow(boundary, keep_prob):
@@ -150,7 +153,7 @@ def inference_flow(boundary, keep_prob):
     if FLAGS.flow_model == "residual_u_network": 
       sflow_p = network_architecture.residual_u_network(boundary, density=FLAGS.density, start_filter_size=FLAGS.filter_size, nr_downsamples=FLAGS.nr_downsamples, nr_residual_per_downsample=FLAGS.nr_residual_blocks, nonlinearity=FLAGS.nonlinearity)
     elif FLAGS.flow_model == "residual_network": 
-      sflow_p = network_architecture.conv_res(boundary)
+      sflow_p = network_architecture.conv_res(boundary, keep_prob=keep_prob)
   return sflow_p
 
 def inference_boundary(length_input, shape):
@@ -164,32 +167,33 @@ def loss_flow(sflow_p, boundary, global_step):
   shape = boundary.get_shape()
   shape = [int(shape[1]), int(shape[2])]
 
-  # make input velocity
-  inflow_computation = inflow.get_inflow(FLAGS.inflow_type)
-
   # initalize flow solver
-  domain = dom.Domain(FLAGS.lattice_type, FLAGS.nu, shape, boundary[:,:,:,0:1])
+  domain = dom.Domain(FLAGS.lattice_type, FLAGS.nu, shape, boundary[...,0:1])
 
   # unroll flow solver for a few steps
-  sflow_t_list = domain.Unroll(sflow_p, FLAGS.lb_seq_length, inflow_computation, FLAGS.inflow_value)
+  #sflow_t_list = domain.Unroll(sflow_p, FLAGS.lb_seq_length, inflow.apply_flow, (boundary[...,1:4], boundary[...,-1:]))
+  sflow_t_list = domain.Unroll(tf.stop_gradient(sflow_p), FLAGS.lb_seq_length, inflow.apply_flow, (boundary[...,1:4], boundary[...,-1:]))
 
   # mse between predicted flow and flow solver
-  loss_mse_predicted = tf.nn.l2_loss(sflow_p - sflow_t_list[0])
-  loss_mse_predicted = tf.nn.l2_loss(sflow_p - sflow_t_list[1])
+  #loss_mse_predicted  = tf.nn.l2_loss(sflow_p - sflow_t_list[0])
+  #loss_mse_predicted += tf.nn.l2_loss(sflow_p - sflow_t_list[1])
   
   # mse between every two states of flow solver
-  for i in xrange(FLAGS.lb_seq_length-2):
-    loss_mse_predicted += tf.nn.l2_loss(sflow_t_list[i] - sflow_t_list[i+1])
-    loss_mse_predicted += tf.nn.l2_loss(sflow_t_list[i] - sflow_t_list[i+2])
-  tf.summary.scalar('mse_predicted_loss', loss_mse_predicted)
+  #for i in xrange(FLAGS.lb_seq_length-2):
+  #  loss_mse_predicted += tf.nn.l2_loss(sflow_t_list[i] - sflow_t_list[i+1])
+  #  loss_mse_predicted += tf.nn.l2_loss(sflow_t_list[i] - sflow_t_list[i+2])
+  #loss_mse_predicted += tf.nn.l2_loss(sflow_p - sflow_t_list[-1])
+  loss_mse_predicted = tf.nn.l2_loss(sflow_p - sflow_t_list[-1])
 
   # normalize loss
   loss = (loss_mse_predicted)/FLAGS.batch_size
-  tf.summary.scalar('total_loss', loss)
+  with tf.device('/cpu:0'):
+    tf.summary.scalar('total_loss', loss)
 
   # image summary
-  tf.summary.image('sflow_p_x', domain.Vel[0][:,:,:,0:1])
-  tf.summary.image('sflow_p_y', domain.Vel[0][:,:,:,1:2])
+  with tf.device('/cpu:0'):
+    tf.summary.image('sflow_p_x', domain.Vel[0][:,:,:,0:1])
+    tf.summary.image('sflow_p_y', domain.Vel[0][:,:,:,1:2])
   return loss
 
 def loss_boundary(true_boundary, generated_boundary):

@@ -119,7 +119,7 @@ class Domain():
     # collision calc
     NonEq = f - Feq
     Q = tf.expand_dims(tf.reduce_sum(NonEq*NonEq*self.EEk, axis=self.Dim+1), axis=self.Dim+1)
-    Q = tf.sqrt(2.0*Q)
+    Q = tf.sqrt(1e-6 + 2.0*Q)
     tau = 0.5*(self.tau[0]+tf.sqrt(self.tau[0]*self.tau[0] + 6.0*Q*self.Sc/rho))
     f = f - NonEq/tau
 
@@ -242,7 +242,7 @@ class Domain():
     self.StreamSC(graph_unroll=True)
     F_return_state = []
     for i in xrange(num_steps):
-      setup_computation(self, setup_params)
+      setup_computation(self, *setup_params)
       self.CollideSC(graph_unroll=True)
       self.StreamSC(graph_unroll=True)
       F_return_state.append(self.F[0])

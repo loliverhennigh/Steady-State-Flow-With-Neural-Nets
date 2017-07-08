@@ -112,7 +112,7 @@ def make_rand_boundary_circle(shape):
   return boundary
 
 #def make_rand_boundary(shape, num_objects_range=[2,12], size_range=[10,30], max_boundary=2500):
-def make_rand_boundary(shape, num_objects_range=[0,4], size_range=[.05,.15], max_boundary=.25):
+def make_rand_boundary(shape, num_objects_range=[1,4], size_range=[.05,.15], max_boundary=.25):
   shape_max = np.min(shape)
   size_range = [int(size_range[0]*shape_max), int(size_range[1]*shape_max)]
   boundary = np.zeros(shape)
@@ -141,6 +141,8 @@ def make_rand_boundary(shape, num_objects_range=[0,4], size_range=[.05,.15], max
       break
   boundary[0:1,:] = 1
   boundary[-1:,:] = 1
+  boundary = np.expand_dims(boundary, axis=0)
+  boundary = np.expand_dims(boundary, axis=3)
   return boundary
 
 """
