@@ -58,6 +58,7 @@ def _variable(name, shape, initializer):
   """
   # getting rid of stddev for xavier ## testing this for faster convergence
   var = tf.get_variable(name, shape, initializer=initializer)
+  _activation_summary(var)
   return var
 
 def mobius_pad(inputs):
