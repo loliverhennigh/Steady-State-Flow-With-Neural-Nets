@@ -55,7 +55,7 @@ tf.app.flags.DEFINE_string('nonlinearity', 'concat_elu',
                            """ nonlinearity used such as concat_elu, elu, concat_relu, relu """)
 tf.app.flags.DEFINE_float('div_constant', 1.0,
                             """ apply to the divergence constant """)
-tf.app.flags.DEFINE_integer('lb_seq_length', 30,
+tf.app.flags.DEFINE_integer('lb_seq_length', 50,
                             """ number of steps taken by LB solver during training """)
 tf.app.flags.DEFINE_float('nu', 0.05,
                             """ viscocity of fluid """)
@@ -150,11 +150,8 @@ def inference_flow(boundary, keep_prob):
     keep_prob: dropout layer
   """
   with tf.variable_scope("flow_network") as scope:
-    if FLAGS.flow_model == "residual_u_network": 
-      sflow_p = network_architecture.residual_u_network(boundary, density=FLAGS.density, start_filter_size=FLAGS.filter_size, nr_downsamples=FLAGS.nr_downsamples, nr_residual_per_downsample=FLAGS.nr_residual_blocks, nonlinearity=FLAGS.nonlinearity)
-    elif FLAGS.flow_model == "residual_network": 
-      sflow_p = network_architecture.conv_res(boundary, keep_prob=keep_prob)
-  return sflow_p
+    pyramid_boundary, pyramid_flow = network_architecture.pyramid_net(boundary)
+  return pyramid_boundary, pyramid_flow
 
 def inference_boundary(length_input, shape):
   with tf.variable_scope("boundary_network") as scope:
@@ -163,37 +160,43 @@ def inference_boundary(length_input, shape):
   tf.summary.image('boundarys_g', boundary)
   return boundary
 
-def loss_flow(sflow_p, boundary, global_step):
-  shape = boundary.get_shape()
-  shape = [int(shape[1]), int(shape[2])]
+def loss_flow(pyramid_flow, pyramid_boundary, global_step):
 
-  # initalize flow solver
-  domain = dom.Domain(FLAGS.lattice_type, FLAGS.nu, shape, boundary[...,0:1])
+  loss = 0.0
 
-  # unroll flow solver for a few steps
-  #sflow_t_list = domain.Unroll(sflow_p, FLAGS.lb_seq_length, inflow.apply_flow, (boundary[...,1:4], boundary[...,-1:]))
-  sflow_t_list = domain.Unroll(tf.stop_gradient(sflow_p), FLAGS.lb_seq_length, inflow.apply_flow, (boundary[...,1:4], boundary[...,-1:]))
+  for i in xrange(len(pyramid_boundary)):
+    shape = pyramid_boundary[i].get_shape()
+    shape = [int(shape[1]), int(shape[2])]
+    ratio = float(pow(2,(len(pyramid_boundary)-i-1)))
 
-  # mse between predicted flow and flow solver
-  #loss_mse_predicted  = tf.nn.l2_loss(sflow_p - sflow_t_list[0])
-  #loss_mse_predicted += tf.nn.l2_loss(sflow_p - sflow_t_list[1])
-  
-  # mse between every two states of flow solver
-  #for i in xrange(FLAGS.lb_seq_length-2):
-  #  loss_mse_predicted += tf.nn.l2_loss(sflow_t_list[i] - sflow_t_list[i+1])
-  #  loss_mse_predicted += tf.nn.l2_loss(sflow_t_list[i] - sflow_t_list[i+2])
-  #loss_mse_predicted += tf.nn.l2_loss(sflow_p - sflow_t_list[-1])
-  loss_mse_predicted = tf.nn.l2_loss(sflow_p - sflow_t_list[-1])
+    # initalize flow solver
+    with tf.variable_scope("lat_solver_" + str(i)) as scope:
+      #domain = dom.Domain(FLAGS.lattice_type, FLAGS.nu, shape, pyramid_boundary[i][...,0:1], dx=ratio)
+      domain = dom.Domain(FLAGS.lattice_type, FLAGS.nu, shape, pyramid_boundary[i][...,0:1])
 
-  # normalize loss
-  loss = (loss_mse_predicted)/FLAGS.batch_size
+    # unroll flow solver for a few steps
+    sflow_t_list = domain.Unroll(tf.stop_gradient(pyramid_flow[i]), FLAGS.lb_seq_length, inflow.apply_flow, (pyramid_boundary[i][...,1:4], pyramid_boundary[i][...,-1:]))
+
+    loss_mse_predicted = ratio * tf.nn.l2_loss(pyramid_flow[i] - sflow_t_list[-1])
+
+    # normalize loss
+    #if i == 0:
+    loss += loss_mse_predicted/(FLAGS.batch_size*FLAGS.nr_gpus*len(pyramid_boundary))
+    with tf.device('/cpu:0'):
+      tf.summary.scalar('loss_down_sampled_' + str(i), loss_mse_predicted)
+
+    # image summary
+    with tf.device('/cpu:0'):
+      tf.summary.image('flow_x_down_sampled_' + str(i), domain.Vel[0][:,:,:,0:1])
+      tf.summary.image('flow_y_down_sampled_' + str(i), domain.Vel[0][:,:,:,1:2])
+      tf.summary.image('boundarys_down_sampled_' + str(i), pyramid_boundary[i][...,0:1])
+      tf.summary.image('u_down_sampled_' + str(i), pyramid_boundary[i][...,1:4])
+      tf.summary.image('u_on_down_sampled_' + str(i), pyramid_boundary[i][...,-1:])
+
+
   with tf.device('/cpu:0'):
     tf.summary.scalar('total_loss', loss)
 
-  # image summary
-  with tf.device('/cpu:0'):
-    tf.summary.image('sflow_p_x', domain.Vel[0][:,:,:,0:1])
-    tf.summary.image('sflow_p_y', domain.Vel[0][:,:,:,1:2])
   return loss
 
 def loss_boundary(true_boundary, generated_boundary):

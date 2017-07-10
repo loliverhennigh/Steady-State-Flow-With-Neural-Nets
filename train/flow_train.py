@@ -40,12 +40,12 @@ def train():
         # make inputs
         boundary = flow_net.inputs_flow(FLAGS.batch_size, shape) 
         # create and unrap network
-        sflow_p = flow_net.inference_flow(boundary, FLAGS.keep_prob) 
+        pyramid_boundary, pyramid_flow = flow_net.inference_flow(boundary, FLAGS.keep_prob) 
         # if i is one then get variables to store all trainable params and 
         if i == 0:
           all_params = tf.trainable_variables()
         # calc error
-        error = flow_net.loss_flow(sflow_p, boundary, global_step)
+        error = flow_net.loss_flow(pyramid_flow, pyramid_boundary, global_step)
         loss_gen.append(error)
         # store grads
         grads.append(tf.gradients(loss_gen[i], all_params))
@@ -87,7 +87,9 @@ def train():
     sess.run(init)
  
     # init from checkpoint
-    saver_restore = tf.train.Saver(variables)
+    variables_to_restore = tf.all_variables()
+    variables_to_restore_flow = [variable for i, variable in enumerate(variables_to_restore) if ("flow_network" in variable.name[:variable.name.index(':')]) or ("global_step" in variable.name[:variable.name.index(':')])]
+    saver_restore = tf.train.Saver(variables_to_restore_flow)
     ckpt = tf.train.get_checkpoint_state(TRAIN_DIR)
     if ckpt is not None:
       print("init from " + TRAIN_DIR)

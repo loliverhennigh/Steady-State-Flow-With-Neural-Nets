@@ -39,6 +39,18 @@ def tryint(s):
 def alphanum_key(s):
   return [ tryint(c) for c in re.split('([0-9]+)', s) ]
 
+def make_car_boundary(shape, car_shape):
+  img = cv2.imread("../cars/car_001.png", 0)
+  img = cv2.flip(img, 1)
+  resized_img = cv2.resize(img, car_shape)
+  resized_img = -np.rint(resized_img/255.0).astype(int).astype(np.float32) + 1.0
+  resized_img = resized_img.reshape([1, car_shape[1], car_shape[0], 1])
+  boundary = np.zeros((1, shape[0], shape[1], 1), dtype=np.float32)
+  boundary[:, shape[0]-car_shape[1]:, 32:32+car_shape[0], :] = resized_img
+  boundary[:,0,:,:] = 1.0
+  boundary[:,shape[0]-1,:,:] = 1.0
+  return boundary
+
 def evaluate():
   """Run Eval once.
   """
@@ -57,10 +69,10 @@ def evaluate():
 
     # Build a Graph that computes the logits predictions from the
     # inference model.
-    sflow_p = flow_net.inference_flow(boundary_op,1.0)
-    seq_length = 150
+    pyramid_boundary, pyramid_flow = flow_net.inference_flow(boundary_op,1.0)
+    seq_length = 1000
     domain = dom.Domain(FLAGS.lattice_type, FLAGS.nu, shape, boundary_op[:,:,:,0:1])
-    sflow_t = domain.Unroll(sflow_p, 1, inflow.apply_flow, (boundary_op[...,1:4], boundary_op[...,-1:]))[-1]
+    sflow_t = domain.Unroll(pyramid_flow[-1], 1, inflow.apply_flow, (boundary_op[...,1:4], boundary_op[...,-1:]))[-1]
     u_p = domain.Vel[0]
     sflow_t_list = domain.Unroll(sflow_t, seq_length-1, inflow.apply_flow, (boundary_op[...,1:4], boundary_op[...,-1:]))
     u_t = domain.Vel[0]
@@ -69,7 +81,7 @@ def evaluate():
 
     # record diff
     diff = []
-    diff.append(tf.nn.l2_loss((1.0-boundary_op[...,0:1])*(sflow_p - sflow_t_list[0])))
+    diff.append(tf.nn.l2_loss((1.0-boundary_op[...,0:1])*(pyramid_flow[-1] - sflow_t_list[0])))
     for i in xrange(seq_length-2):
       diff.append(tf.nn.l2_loss((1.0-boundary_op[...,0:1])*(sflow_t_list[i+1] - sflow_t_list[i])))
     diff = tf.stack(diff)
@@ -89,12 +101,11 @@ def evaluate():
     #for run in filenames:
     for i in xrange(10):
       # read in boundary
-      #flow_name = run + '/fluid_flow_0002.h5'
-      #boundary_np = load_boundary(flow_name, shape).reshape([1, shape[0], shape[1], 1])
-      #sflow_true = load_state(flow_name, shape)
-      boundary_np = flow_net.feed_dict_flows(1, shape)
+      boundary_car = make_car_boundary(shape=shape, car_shape=(int(shape[1]/2.3), int(shape[0]/1.6)))
+      boundary_np = flow_net.feed_dict_flows(1,shape)
+      #boundary_np[:,:,:,0:1] = boundary_car
+      #sflow_true = load_state(flow_name, [128,256])
       # calc logits 
-      sflow_generated = sess.run(sflow_p,feed_dict={boundary_op: boundary_np})
       vel_p, vel_t = sess.run([u_p,u_t],feed_dict={boundary_op: boundary_np})
       diff_generated = sess.run(diff,feed_dict={boundary_op: boundary_np})
       plt.plot(diff_generated)

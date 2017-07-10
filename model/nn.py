@@ -44,8 +44,9 @@ def _activation_summary(x):
     nothing
   """
   tensor_name = x.op.name
-  tf.summary.histogram(tensor_name + '/activations', x)
-  tf.summary.scalar(tensor_name + '/sparsity', tf.nn.zero_fraction(x))
+  with tf.device('/cpu:0'):
+    tf.summary.histogram(tensor_name + '/activations', x)
+    tf.summary.scalar(tensor_name + '/sparsity', tf.nn.zero_fraction(x))
 
 def _variable(name, shape, initializer):
   """Helper to create a Variable.
