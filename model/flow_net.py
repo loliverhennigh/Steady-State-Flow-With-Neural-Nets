@@ -30,13 +30,13 @@ tf.app.flags.DEFINE_integer('batch_size', 8,
                             """ training batch size """)
 tf.app.flags.DEFINE_integer('nr_gpus', 1,
                            """ number of gpus for training (each gpu with have batch size FLAGS.batch_size""")
-tf.app.flags.DEFINE_integer('max_steps',  300000,
+tf.app.flags.DEFINE_integer('max_steps',  3000000,
                             """ max number of steps to train """)
-tf.app.flags.DEFINE_float('keep_prob', 0.9522,
+tf.app.flags.DEFINE_float('keep_prob', 0.92,
                             """ keep probability for dropout """)
 tf.app.flags.DEFINE_float('lr', 1e-4,
                             """ r dropout """)
-tf.app.flags.DEFINE_string('shape', '128x512',
+tf.app.flags.DEFINE_string('shape', '64x256',
                             """ shape of flow """)
 
 
@@ -55,7 +55,7 @@ tf.app.flags.DEFINE_string('nonlinearity', 'concat_elu',
                            """ nonlinearity used such as concat_elu, elu, concat_relu, relu """)
 tf.app.flags.DEFINE_float('div_constant', 1.0,
                             """ apply to the divergence constant """)
-tf.app.flags.DEFINE_integer('lb_seq_length', 50,
+tf.app.flags.DEFINE_integer('lb_seq_length', 20,
                             """ number of steps taken by LB solver during training """)
 tf.app.flags.DEFINE_float('nu', 0.05,
                             """ viscocity of fluid """)
@@ -165,19 +165,28 @@ def loss_flow(pyramid_flow, pyramid_boundary, global_step):
   loss = 0.0
 
   for i in xrange(len(pyramid_boundary)):
-    shape = pyramid_boundary[i].get_shape()
+    #shape = pyramid_boundary[i].get_shape()
+    shape = pyramid_boundary[-1].get_shape()
     shape = [int(shape[1]), int(shape[2])]
-    ratio = float(pow(2,(len(pyramid_boundary)-i-1)))
+    #ratio = float(pow(2,(len(pyramid_boundary)-i-1)))
+    ratio = 1.0
 
     # initalize flow solver
     with tf.variable_scope("lat_solver_" + str(i)) as scope:
-      #domain = dom.Domain(FLAGS.lattice_type, FLAGS.nu, shape, pyramid_boundary[i][...,0:1], dx=ratio)
-      domain = dom.Domain(FLAGS.lattice_type, FLAGS.nu, shape, pyramid_boundary[i][...,0:1])
+      domain = dom.Domain(FLAGS.lattice_type, FLAGS.nu, shape, pyramid_boundary[i][...,0:1], dx=ratio, dt=ratio)
+      #domain = dom.Domain(FLAGS.lattice_type, FLAGS.nu, shape, pyramid_boundary[i][...,0:1])
 
     # unroll flow solver for a few steps
     sflow_t_list = domain.Unroll(tf.stop_gradient(pyramid_flow[i]), FLAGS.lb_seq_length, inflow.apply_flow, (pyramid_boundary[i][...,1:4], pyramid_boundary[i][...,-1:]))
+    #sflow_t_list = domain.Unroll(pyramid_flow[i], FLAGS.lb_seq_length, inflow.apply_flow, (pyramid_boundary[i][...,1:4], pyramid_boundary[i][...,-1:]))
+    #sflow_t_list = domain.Unroll(tf.stop_gradient(pyramid_flow[-1]), FLAGS.lb_seq_length, inflow.apply_flow, (pyramid_boundary[-1][...,1:4], pyramid_boundary[-1][...,-1:]))
 
-    loss_mse_predicted = ratio * tf.nn.l2_loss(pyramid_flow[i] - sflow_t_list[-1])
+    loss_mse_predicted  = ratio * tf.nn.l2_loss(pyramid_flow[i] - sflow_t_list[-1])
+    #for k in xrange(FLAGS.lb_seq_length):
+      #loss_mse_predicted  += ratio * tf.nn.l2_loss(pyramid_flow[i] - sflow_t_list[k])
+      #loss_mse_predicted  += ratio * tf.nn.l2_loss(pyramid_flow[-1] - sflow_t_list[k])
+   
+    #loss_mse_predicted += ratio * tf.nn.l2_loss(pyramid_flow[i] - sflow_t_list[-FLAGS.lb_seq_length/2])
 
     # normalize loss
     #if i == 0:
@@ -187,6 +196,9 @@ def loss_flow(pyramid_flow, pyramid_boundary, global_step):
 
     # image summary
     with tf.device('/cpu:0'):
+      difference_i = tf.abs(pyramid_flow[i] - sflow_t_list[-1])
+      difference_i = tf.expand_dims(tf.reduce_sum(difference_i, axis=3), axis=3)
+      tf.summary.image('difference_' + str(i), difference_i)
       tf.summary.image('flow_x_down_sampled_' + str(i), domain.Vel[0][:,:,:,0:1])
       tf.summary.image('flow_y_down_sampled_' + str(i), domain.Vel[0][:,:,:,1:2])
       tf.summary.image('boundarys_down_sampled_' + str(i), pyramid_boundary[i][...,0:1])

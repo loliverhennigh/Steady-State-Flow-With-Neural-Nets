@@ -66,7 +66,7 @@ def simple_conv_3d(x, k):
 def simple_trans_conv_3d(x, k):
   """A simplified 2D convolution operation"""
   output_shape = tf.stack([tf.shape(x)[0], tf.shape(x)[1], tf.shape(x)[2], tf.shape(k)[2]]) 
-  y = tf.nn.conv3d_transpose(x, k, [1, 1, 1, 1, 1], padding='VALID')
+  y = tf.nn.conv3d_transpose(x, k, [1, 1, 1, 1, 1], padding='SAME')
   y = tf.reshape(y, [x.get_shape()[0], x.get_shape()[1], x.get_shape()[2], k.get_shape()[2]])
   return y
 

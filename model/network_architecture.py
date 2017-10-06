@@ -4,12 +4,13 @@ import numpy as np
 import nn
 import LatFlow.D2Q9  as D2Q9
 import LatFlow.D3Q15 as D3Q15
+from lattice import get_edge_kernel, simple_trans_conv_2d
 
-def pyramid_net(inputs, nr_downsamples=4, nr_residuals_per_downsample=2, nonlinearity='concat_elu'):
+def pyramid_net(inputs, nr_downsamples=2, nr_residuals_per_downsample=2, nonlinearity='concat_elu'):
 
   # define the pieces of the network
 
-  def mini_res_u_network(inputs, nr_res_blocks=2, nr_downsamples=3, filter_size=32, nonlinearity='concat_elu', keep_prob=1.0):
+  def mini_res_u_network(inputs, nr_res_blocks=2, nr_downsamples=4, filter_size=8, nonlinearity='concat_elu', keep_prob=1.0):
     # store for as
     a = []
     # set nonlinearity
@@ -17,12 +18,12 @@ def pyramid_net(inputs, nr_downsamples=4, nr_residuals_per_downsample=2, nonline
     # encoding piece
     x_i = inputs
     for i in xrange(nr_downsamples):
-      for j in xrange(nr_res_blocks - 1):
+      for j in xrange(nr_res_blocks):
         x_i = nn.res_block(x_i, filter_size=filter_size, keep_p=keep_prob, nonlinearity=nonlinearity, name="res_encode_" + str(i) + "_block_" + str(j))
       if i < nr_downsamples-1:
         a.append(x_i)
-        x_i = nn.res_block(x_i, filter_size=filter_size, keep_p=keep_prob, nonlinearity=nonlinearity, stride=2, name="res_encode_" + str(i) + "_block_" + str(nr_res_blocks))
         filter_size = filter_size * 2
+        x_i = nn.res_block(x_i, filter_size=filter_size, keep_p=keep_prob, nonlinearity=nonlinearity, stride=2, name="res_encode_" + str(i) + "_block_" + str(nr_res_blocks))
     # decoding piece
     for i in xrange(nr_downsamples-1):
       filter_size = filter_size / 2
@@ -31,6 +32,13 @@ def pyramid_net(inputs, nr_downsamples=4, nr_residuals_per_downsample=2, nonline
       for j in xrange(nr_res_blocks-1):
         x_i = nn.res_block(x_i, filter_size=filter_size, keep_p=keep_prob, nonlinearity=nonlinearity, name="res_decode_" + str(i) + "_block_" + str(j+1))
     x_i = nn.conv_layer(x_i, 3, 1, 9, "final_conv")
+    """
+    boundary = nn.mobius_pad(inputs[...,0:1]) 
+    boundary = tf.concat(9*[(1.0-boundary)], axis=3)
+    edge = simple_trans_conv_2d(boundary, D2Q9.STREAM)
+    edge = edge[:,1:-1,1:-1]
+    x_i = x_i * edge
+    """
     x_i = tf.nn.tanh(x_i) 
     x_i = .5 * tf.reshape(D2Q9.WEIGHTS, [1,1,1,9]) * x_i
     x_i = tf.reshape(D2Q9.WEIGHTS, [1,1,1,9]) + x_i
@@ -39,7 +47,7 @@ def pyramid_net(inputs, nr_downsamples=4, nr_residuals_per_downsample=2, nonline
   # mini res u net template
   mini_res_u_template = tf.make_template('mini_res_u_template', mini_res_u_network)
 
-  def upsampleing_res_u_network(inputs, nr_res_blocks=2, filter_size=32, nonlinearity='concat_elu', keep_prob=1.0):
+  def upsampleing_res_u_network(inputs, nr_res_blocks=2, filter_size=16, nonlinearity='concat_elu', keep_prob=1.0):
     # res_1
     x_i = inputs
     # set nonlinearity
@@ -52,6 +60,7 @@ def pyramid_net(inputs, nr_downsamples=4, nr_residuals_per_downsample=2, nonline
  
   # upsampleing res u network
   upsampleing_res_u_template = tf.make_template('upsampleing_res_u_template', upsampleing_res_u_network)
+  upsampleing_res_u_fake_template = tf.make_template('upsampleing_res_u_fake_template', upsampleing_res_u_network)
 
   # generate list of resized inputs
   pyramid_inputs = []
@@ -70,11 +79,7 @@ def pyramid_net(inputs, nr_downsamples=4, nr_residuals_per_downsample=2, nonline
     inputs_i = pyramid_inputs[i]
     # concat previous upsampled flow
     if i == 0:
-      zeros_flow_shape = nn.int_shape(inputs_i)[:-1]
-      zeros_flow_shape = [zeros_flow_shape[0], zeros_flow_shape[1]/2, zeros_flow_shape[2]/2, 1]
-      zeros_flow = tf.zeros(zeros_flow_shape) + 1.0
-      zeros_flow = tf.reshape(D2Q9.WEIGHTS, [1,1,1,9]) * zeros_flow
-      zeros_flow = upsampleing_res_u_template(zeros_flow)
+      zeros_flow = upsampleing_res_u_fake_template(tf.nn.max_pool(inputs_i, ksize=[1,2,2,1], strides=[1,2,2,1], padding="VALID"))
       inputs_i = tf.concat([inputs_i, zeros_flow], axis=3)
     else:
       inputs_i = tf.concat([inputs_i, upsampled_flow_i], axis=3)

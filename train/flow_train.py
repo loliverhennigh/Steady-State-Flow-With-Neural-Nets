@@ -109,10 +109,18 @@ def train():
 
     # calc number of steps left to run
     run_steps = FLAGS.max_steps - int(sess.run(global_step))
+
+    # make block of batches
+    fd_boundary_batches = []
+    num_batches = 1000
+    for i in xrange(num_batches):
+      fd_boundary_batches.append(flow_net.feed_dict_flows(FLAGS.batch_size, shape))
+      
     for step in xrange(run_steps):
       current_step = sess.run(global_step)
       t = time.time()
-      fd_boundary = flow_net.feed_dict_flows(FLAGS.batch_size, shape)
+      fd_boundary = fd_boundary_batches[step % num_batches]
+      #fd_boundary = flow_net.feed_dict_flows(FLAGS.batch_size, shape)
       _ , loss_value = sess.run([train_op, error],feed_dict={boundary:fd_boundary})
       elapsed = time.time() - t
 
