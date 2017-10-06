@@ -2,6 +2,7 @@
 
 This repository contains an re-implementation of the paper [Convolutional Neural Networks for Steady Flow Approximation](https://www.autodeskresearch.com/publications/convolutional-neural-networks-steady-flow-approximation). The premise is to learn a mapping from boundary conditions to steady state fluid flow. There are a few differences and improvements from this work and the original paper which are discussed bellow.
 
+This repository was made in part to test the idea of using trained flow estimation networks to learn boundary conditions that minimize values such as drag. The code to do this is in the `boundary_learning` branch until its maturity. Check bellow for some cool preliminary figures though! You can see it learn awesome modified car boundaries that minimize horizontal drag. I have some cool new code that learns shapes with desired drag to lift ratios as well.
 This repository was made to test the idea of using trained flow estimation networks to learn boundary conditions that minimize values such as drag. The code to do this is in the `boundary_learning` branch until its maturity. Check bellow for some cool preliminary figures though! You can see it learn awesome modified car boundaries that minimize horizontal drag. I have some cool new code that learns shapes with desired drag to lift ratios as well. Here is a sweet fig showing the general idea.
 
 ![alt tag](https://github.com/loliverhennigh/Steady-State-Flow-With-Neural-Nets/blob/master/test/figs/optimizing_boundary.png)
