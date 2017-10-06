@@ -101,9 +101,6 @@ def evaluate():
         plt.colorbar()
         plt.show()
 
-    print("the percent error on " + FLAGS.test_set + " is")
-    print(p_error)
-
 def main(argv=None):  # pylint: disable=unused-argument
   evaluate()
 
