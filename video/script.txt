@@ -1,0 +1,16 @@
+
+Hello, my name is oliver hennigh and this is a half way progress report for the Aigrant.
+
+Back in May I recieved the Aigrant to fund my research in compressing computational physics simulations with neural networks and other work related to automated design. This grant is supporting me here in Guanajuoto for 9 months and im roughly on month 5 mark. In this video I will go over all the work I have done so far as well as my future plans. There are three main things I tried to do so far. Create an unsupervised loss function to train neural networks in predicting steady state flow, a multi resolution method for predicting steady state flow that allows high resolution, automated design using gradient descent and neural networks.
+
+
+One of the main idea I had was an unsupervied loss function to train the flow prediction network. This can be understood in this picture where the flow network predictes a steady state solution to the fluid flow and then the prediction is passed into an actual flow solver. The flow solver then performs some iterations getting closer to the true steady state. The idea is that if the network predicts the true steady state flow then the diffrence between the network output and the flow sovler will be zero. This can be formulated as a loss function minimizing the diffrence between the two. The reason this would be great is because it would allow the neural network to be trained with only a dataset of object geometries instead of 
+
+The 
+
+
+
+
+
+Thanks again to the Aigrant! None of this would have been possible without this generous support.
+
