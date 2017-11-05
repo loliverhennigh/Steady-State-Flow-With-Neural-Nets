@@ -112,7 +112,7 @@ def make_rand_boundary_circle(shape):
   return boundary
 
 #def make_rand_boundary(shape, num_objects_range=[2,12], size_range=[10,30], max_boundary=2500):
-def make_rand_boundary(shape, num_objects_range=[1,4], size_range=[.05,.15], max_boundary=.25):
+def make_rand_boundary(shape, num_objects_range=[1,8], size_range=[.05,.35], max_boundary=.35):
   shape_max = np.min(shape)
   size_range = [int(size_range[0]*shape_max), int(size_range[1]*shape_max)]
   boundary = np.zeros(shape)
@@ -126,7 +126,8 @@ def make_rand_boundary(shape, num_objects_range=[1,4], size_range=[.05,.15], max
       size_y = np.random.randint(size_range[0], size_range[1])
       angle = np.random.randint(0, 90)
       max_length = np.max([size_x, size_y])
-      vertex = rand_vertex([max_length, shape[0]-max_length], [max_length+int(.1*shape[1]), shape[1]-max_length-int(.1*shape[1])])
+      #vertex = rand_vertex([max_length, shape[0]-max_length], [max_length+int(.1*shape[1]), int(.5*shape[1])-max_length])
+      vertex = rand_vertex([20, shape[0]], [max_length+int(.1*shape[1]), int(.5*shape[1])-max_length])
       boundary = draw_ovel(boundary, vertex, size_x, size_y, angle, nr_angles=20)
     if object_type == 1:
       size_x_1 = np.random.randint(-size_range[1], size_range[1])
@@ -135,7 +136,8 @@ def make_rand_boundary(shape, num_objects_range=[1,4], size_range=[.05,.15], max
       size_y_2 = np.random.randint(-size_range[1], size_range[1])
       max_length_x = np.max([np.abs(size_x_1), np.abs(size_x_2)])
       max_length_y = np.max([np.abs(size_y_1), np.abs(size_y_2)])
-      vertex = rand_vertex([max_length_x, shape[0]-max_length_x], [max_length_y+int(.1*shape[1]), shape[1]-max_length_y-int(.1*shape[1])])
+      #vertex = rand_vertex([max_length_x, shape[0]-max_length_x], [max_length_y+int(.1*shape[1]), int(.5*shape[1])-max_length_y])
+      vertex = rand_vertex([20, shape[0]], [max_length_y+int(.1*shape[1]), int(.5*shape[1])-max_length_y])
       boundary = draw_triangle(boundary, vertex, [vertex[0]+size_x_2, vertex[1]+size_y_2], [vertex[0]+size_x_1, vertex[1]+size_y_1])
     if np.sum(boundary) > max_boundary:
       break

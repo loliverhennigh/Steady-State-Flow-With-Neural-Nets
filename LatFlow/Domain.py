@@ -191,6 +191,23 @@ class Domain():
       self.Rho[0] = Rho
       self.Vel[0] = Vel
 
+  def InitializeSC(self, graph_unroll=False):
+    # calc new velocity and density
+    Rho = tf.expand_dims(tf.reduce_sum(self.F[0], self.Dim+1), self.Dim+1)
+    Vel = simple_conv(self.F[0], self.C)
+    Vel = Vel/(self.Cs * Rho)
+    if not graph_unroll:
+      # create steps
+      stream_step = self.F[0].assign(self.F[0])
+      Rho_step =    self.Rho[0].assign(Rho)
+      Vel_step =    self.Vel[0].assign(Vel)
+      step = tf.group(*[stream_step, Rho_step, Vel_step])
+      return step
+    else:
+      self.Rho[0] = Rho
+      self.Vel[0] = Vel
+
+
   """
   def StreamMP(self):
     # stream f
@@ -239,13 +256,15 @@ class Domain():
   def Unroll(self, start_f, num_steps, setup_computation, setup_params):
     # run solver
     self.F[0] = start_f
-    self.StreamSC(graph_unroll=True)
+    self.InitializeSC(graph_unroll=True)
     F_return_state = []
     for i in xrange(num_steps):
       setup_computation(self, *setup_params)
       self.CollideSC(graph_unroll=True)
       self.StreamSC(graph_unroll=True)
       F_return_state.append(self.F[0])
+    #setup_computation(self, *setup_params)
+    #self.CollideSC(graph_unroll=True)
     return F_return_state
 
 

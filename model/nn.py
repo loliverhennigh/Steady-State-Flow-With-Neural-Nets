@@ -44,8 +44,9 @@ def _activation_summary(x):
     nothing
   """
   tensor_name = x.op.name
-  tf.summary.histogram(tensor_name + '/activations', x)
-  tf.summary.scalar(tensor_name + '/sparsity', tf.nn.zero_fraction(x))
+  with tf.device('/cpu:0'):
+    tf.summary.histogram(tensor_name + '/activations', x)
+    tf.summary.scalar(tensor_name + '/sparsity', tf.nn.zero_fraction(x))
 
 def _variable(name, shape, initializer):
   """Helper to create a Variable.
@@ -130,7 +131,7 @@ def upsampleing_resize(x, filter_size, name="upsample"):
   x = conv_layer(x, 3, 1, filter_size, name)
   return x
 
-def res_block(x, a=None, filter_size=16, nonlinearity=concat_elu, keep_p=1.0, stride=1, gated=False, name="resnet", begin_nonlinearity=True):
+def res_block(x, a=None, filter_size=16, nonlinearity=concat_elu, keep_p=1.0, stride=1, gated=True, name="resnet", begin_nonlinearity=True):
       
   orig_x = x
   if begin_nonlinearity: 
