@@ -94,23 +94,18 @@ def evaluate():
       #sflow_true = load_state(flow_name, shape)
       boundary_np = flow_net.feed_dict_flows(1, shape)
       # calc logits 
-      sflow_generated = sess.run(sflow_p,feed_dict={boundary_op: boundary_np})
-      vel_p, vel_t = sess.run([u_p,u_t],feed_dict={boundary_op: boundary_np})
-      diff_generated = sess.run(diff,feed_dict={boundary_op: boundary_np})
-      plt.plot(diff_generated)
-      plt.show()
-      #vel_t = np.minimum(vel_t, 1.2)
-      #vel_t = np.maximum(vel_t, -1.2)
-      #sflow_plot = np.concatenate([vel_p, sflow_true, vel_p - sflow_true], axis=1)
-      sflow_plot = np.concatenate([vel_p, vel_t, np.abs(vel_p - vel_t)], axis=1)
-      #sflow_plot = vel_p
-      sflow_plot = sflow_plot[0,:,:,0]
+      sflow_generated = sess.run(sflow_p,feed_dict={boundary_op: boundary_np})[0]
 
-      # display it
-      plt.imshow(sflow_plot)
-      #plt.imshow(sflow_generated[0,:,:,0])
-      plt.colorbar()
-      plt.show()
+      if FLAGS.display_test: 
+        # convert to display 
+        sflow_plot = np.concatenate([sflow_true, sflow_generated, sflow_true - sflow_generated], axis=1) 
+        boundary_concat = np.concatenate(3*[boundary_np], axis=2) 
+        sflow_plot = np.sqrt(np.square(sflow_plot[:,:,0]) + np.square(sflow_plot[:,:,1])) - .05 *boundary_concat[0,:,:,0]
+
+        # display it
+        plt.imshow(sflow_plot)
+        plt.colorbar()
+        plt.show()
 
 def main(argv=None):  # pylint: disable=unused-argument
   evaluate()
