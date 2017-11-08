@@ -139,18 +139,23 @@ def evaluate():
       vel_p, vel_t = sess.run([u_p,u_t],feed_dict={boundary_op: boundary_np})
       diff_generated = sess.run(diff,feed_dict={boundary_op: boundary_np})
       plt.plot(diff_generated)
+      plt.ylabel("Diffrence in Flow")
+      plt.xlabel("Flow Solver Step")
+      plt.savefig("../video/diffrence_plot.png")
       plt.show()
       #vel_t = np.minimum(vel_t, 1.2)
       #vel_t = np.maximum(vel_t, -1.2)
       #sflow_plot = np.concatenate([vel_p, sflow_true, vel_p - sflow_true], axis=1)
-      sflow_plot = np.concatenate([vel_p, vel_t, np.abs(vel_p - vel_t)], axis=1)
+      print(boundary_np.shape)
+      sflow_plot = np.concatenate([vel_p, vel_t, np.abs(vel_p - vel_t), boundary_np[:,:,:,0:1]/10.0], axis=1)
       #sflow_plot = vel_p
       sflow_plot = sflow_plot[0,:,:,0]
 
       # display it
       plt.imshow(sflow_plot)
-      #plt.imshow(sflow_generated[0,:,:,0])
       plt.colorbar()
+      #plt.imshow(sflow_generated[0,:,:,0])
+      plt.savefig("../video/flow_diffrence_plot.png")
       plt.show()
       exit()
 
