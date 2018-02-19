@@ -89,7 +89,7 @@ def evaluate():
       _ = sess.run(sflow_p,feed_dict={boundary_op: boundary_np})[0]
 
     elapsed = time.time() - t
-    print("time per inpu is ")
+    print("time per input is ")
     print(elapsed / (num_runs*8.))
 
 def main(argv=None):  # pylint: disable=unused-argument

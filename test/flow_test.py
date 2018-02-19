@@ -37,8 +37,6 @@ tf.app.flags.DEFINE_float('learning_rate', 1e-4,
                             """ keep probability for dropout """)
 tf.app.flags.DEFINE_bool('display_test', True,
                             """ display the test images """)
-tf.app.flags.DEFINE_string('test_set', "car",
-                            """ either car or random """)
 
 TEST_DIR = make_checkpoint_path(FLAGS.base_dir, FLAGS)
 
@@ -55,7 +53,7 @@ def evaluate():
   """Run Eval once.
   """
   # get a list of image filenames
-  filenames = glb('/data/fluid_flow_steady_state_128x128_test/*')
+  filenames = glb('../data/computed_car_flow/*/')
   filenames.sort(key=alphanum_key)
   filename_len = len(filenames)
   shape = [128, 256]
