@@ -2,7 +2,6 @@
 
 This repository contains an re-implementation of the paper [Convolutional Neural Networks for Steady Flow Approximation](https://www.autodeskresearch.com/publications/convolutional-neural-networks-steady-flow-approximation). The premise is to learn a mapping from boundary conditions to steady state fluid flow. There are a few differences and improvements from this work and the original paper which are discussed bellow. This code and network architecture was later used to write this [paper](https://arxiv.org/abs/1710.10352) about optimizing wing airfoils to maximize the lift drag ratio.
 
-![alt tag](https://github.com/loliverhennigh/Steady-State-Flow-With-Neural-Nets/blob/master/test/figs/optimizing_boundary.png)
 
 # Getting data and making TFrecords
 
