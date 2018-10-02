@@ -78,7 +78,7 @@ def train():
     graph_def = sess.graph.as_graph_def(add_shapes=True)
     summary_writer = tf.summary.FileWriter(TRAIN_DIR, graph_def=graph_def)
 
-    for step in xrange(FLAGS.max_steps):
+    for step in range(FLAGS.max_steps):
       t = time.time()
       _ , loss_value = sess.run([train_op, error],feed_dict={})
       elapsed = time.time() - t

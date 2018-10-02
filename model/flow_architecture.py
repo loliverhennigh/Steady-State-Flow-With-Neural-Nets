@@ -176,64 +176,64 @@ def conv_res(inputs, nr_res_blocks=1, keep_prob=1.0, nonlinearity_name='concat_e
   a = []
   # res_1
   x = inputs
-  for i in xrange(nr_res_blocks):
+  for i in range(nr_res_blocks):
     x = res_block(x, filter_size=filter_size, nonlinearity=nonlinearity, keep_p=keep_prob, gated=gated, name="resnet_1_" + str(i))
   # res_2
   a.append(x)
   filter_size = 2 * filter_size
   x = res_block(x, filter_size=filter_size, nonlinearity=nonlinearity, keep_p=keep_prob, stride=2, gated=gated, name="resnet_2_downsample")
-  for i in xrange(nr_res_blocks):
+  for i in range(nr_res_blocks):
     x = res_block(x, filter_size=filter_size, nonlinearity=nonlinearity, keep_p=keep_prob, gated=gated, name="resnet_2_" + str(i))
   # res_3
   a.append(x)
   filter_size = 2 * filter_size
   x = res_block(x, filter_size=filter_size, nonlinearity=nonlinearity, keep_p=keep_prob, stride=2, gated=gated, name="resnet_3_downsample")
-  for i in xrange(nr_res_blocks):
+  for i in range(nr_res_blocks):
     x = res_block(x, filter_size=filter_size, nonlinearity=nonlinearity, keep_p=keep_prob, gated=gated, name="resnet_3_" + str(i))
   # res_4
   a.append(x)
   filter_size = 2 * filter_size
   x = res_block(x, filter_size=filter_size, nonlinearity=nonlinearity, keep_p=keep_prob, stride=2, gated=gated, name="resnet_4_downsample")
-  for i in xrange(nr_res_blocks):
+  for i in range(nr_res_blocks):
     x = res_block(x, filter_size=filter_size, nonlinearity=nonlinearity, keep_p=keep_prob, gated=gated, name="resnet_4_" + str(i))
   # res_4
   a.append(x)
   filter_size = 2 * filter_size
   x = res_block(x, filter_size=filter_size, nonlinearity=nonlinearity, keep_p=keep_prob, stride=2, gated=gated, name="resnet_5_downsample")
-  for i in xrange(nr_res_blocks):
+  for i in range(nr_res_blocks):
     x = res_block(x, filter_size=filter_size, nonlinearity=nonlinearity, keep_p=keep_prob, gated=gated, name="resnet_5_" + str(i))
   # res_up_1
-  filter_size = filter_size /2
+  filter_size = int(filter_size /2)
   x = transpose_conv_layer(x, 3, 2, filter_size, "up_conv_1")
   #x = PS(x,2,512)
-  for i in xrange(nr_res_blocks):
+  for i in range(nr_res_blocks):
     if i == 0:
       x = res_block(x, a=a[-1], filter_size=filter_size, nonlinearity=nonlinearity, keep_p=keep_prob, gated=gated, name="resnet_up_1_" + str(i))
     else:
       x = res_block(x, filter_size=filter_size, nonlinearity=nonlinearity, keep_p=keep_prob, gated=gated, name="resnet_up_1_" + str(i))
   # res_up_1
-  filter_size = filter_size /2
+  filter_size = int(filter_size /2)
   x = transpose_conv_layer(x, 3, 2, filter_size, "up_conv_2")
   #x = PS(x,2,512)
-  for i in xrange(nr_res_blocks):
+  for i in range(nr_res_blocks):
     if i == 0:
       x = res_block(x, a=a[-2], filter_size=filter_size, nonlinearity=nonlinearity, keep_p=keep_prob, gated=gated, name="resnet_up_2_" + str(i))
     else:
       x = res_block(x, filter_size=filter_size, nonlinearity=nonlinearity, keep_p=keep_prob, gated=gated, name="resnet_up_2_" + str(i))
 
-  filter_size = filter_size /2
+  filter_size = int(filter_size /2)
   x = transpose_conv_layer(x, 3, 2, filter_size, "up_conv_3")
   #x = PS(x,2,512)
-  for i in xrange(nr_res_blocks):
+  for i in range(nr_res_blocks):
     if i == 0:
       x = res_block(x, a=a[-3], filter_size=filter_size, nonlinearity=nonlinearity, keep_p=keep_prob, gated=gated, name="resnet_up_3_" + str(i))
     else:
       x = res_block(x, filter_size=filter_size, nonlinearity=nonlinearity, keep_p=keep_prob, gated=gated, name="resnet_up_3_" + str(i))
  
-  filter_size = filter_size /2
+  filter_size = int(filter_size /2)
   x = transpose_conv_layer(x, 3, 2, filter_size, "up_conv_4")
   #x = PS(x,2,512)
-  for i in xrange(nr_res_blocks):
+  for i in range(nr_res_blocks):
     if i == 0:
       x = res_block(x, a=a[-4], filter_size=filter_size, nonlinearity=nonlinearity, keep_p=keep_prob, gated=gated, name="resnet_up_4_" + str(i))
     else:

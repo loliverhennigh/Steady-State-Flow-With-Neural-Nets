@@ -11,7 +11,7 @@ Summary of available functions:
 
 import tensorflow as tf
 import numpy as np
-import flow_architecture
+import model.flow_architecture as flow_architecture
 import input.flow_input as flow_input
 
 FLAGS = tf.app.flags.FLAGS
